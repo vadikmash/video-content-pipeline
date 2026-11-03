@@ -1,0 +1,15 @@
+<!-- @dsCard group="Pipeline" height=560 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>StageRail</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', {style:{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:'16px'}},
+  h('div', {className:'vcp-detail-rail'}, h(V.StageRail, {stages:S.stages.video})),
+  h('div', {className:'vcp-detail-rail'}, h(V.StageRail, {stages:S.stages.failed}))));
+</script>
+</body>
+</html>

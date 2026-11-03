@@ -1,0 +1,32 @@
+<!-- @dsCard group="Screens" height=1700 width=1200 page -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ProjectDetailScreen</title>
+<style>body{padding:16px} body{padding:0}</style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+var P = S.projects[1];
+var meta = [{label:'Resolution', value:'1080 × 1920', mono:true},{label:'Duration', value:'0:41', mono:true},{label:'Size', value:'18.4 MB', mono:true},{label:'Codec', value:'H.264 · AAC', mono:true},{label:'Rendered', value:'ffmpeg · 1m 54s', mono:true}];
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', null,
+  h(V.TopBar, {active:'projects', items:[{key:'ideas',label:'Ideas',href:'#',count:21},{key:'projects',label:'Projects',href:'#',attention:2}]}),
+  h('main', {className:'vcp-page'},
+    h(V.ProjectHeader, {id:P.id, title:P.title, oneLiner:P.oneLiner, status:P.status, stages:P.stages, live:h(V.LiveIndicator, {updated:'4s ago'})}),
+    h('div', {className:'vcp-detail'},
+      h('aside', {className:'vcp-detail-rail'},
+        h('div', {className:'vcp-detail-rail-head'}, h('span', {className:'vcp-kicker'}, 'Pipeline'), h('span', {className:'vcp-mono vcp-faint'}, '7/11 done')),
+        h(V.StageRail, {stages:P.stages})),
+      h('div', {className:'vcp-stack'},
+        h(V.GateBanner, {gate:'video'}),
+        h(V.Panel, {title:'Render', meta:'render-v3.mp4 · 0:41', status:'done', collapsible:true, defaultOpen:true},
+          h(V.VerticalPreview, {duration:'0:41', caption:'It was still edible.', meta:meta, thumbnailHref:'#'})),
+        h(V.Panel, {title:'Storyboard', meta:'7 beats · 7/7 assets', status:'done', collapsible:true, defaultOpen:true}, h(V.StoryboardTable, {rows:S.storyboard})),
+        h(V.Panel, {title:'Narration', meta:'v3 · 0:41', status:'done', collapsible:true}, h(V.AudioPlayer, {title:'Narration · v3', duration:41})),
+        h(V.Panel, {title:'Script', meta:'v3 · 88 words · approved', status:'done', collapsible:true}, h(V.ScriptView, {script:S.scripts.honey})),
+        h(V.Panel, {title:'Brief & sources', meta:'3 sources', status:'done', collapsible:true}),
+        h(V.Panel, {title:'Upload', status:'pending', collapsible:true, defaultOpen:true},
+          h(V.EmptyState, {compact:true, icon:'pending', title:'Not uploaded yet'}, 'Uploads as private after you approve the video.')))))));
+</script>
+</body>
+</html>

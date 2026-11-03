@@ -1,0 +1,24 @@
+<!-- @dsCard group="Actions" height=96 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Button</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', {className:'vcp-stack'},
+  h('div', {className:'vcp-row'},
+    h(V.Button, {variant:'primary', icon:'check'}, 'Approve script'),
+    h(V.Button, {icon:'star'}, 'Shortlist'),
+    h(V.Button, {variant:'ghost'}, 'Reject…'),
+    h(V.Button, {variant:'danger', icon:'x'}, 'Reject and stop'),
+    h(V.Button, {variant:'primary', disabled:true}, 'Approving…')),
+  h('div', {className:'vcp-row'},
+    h(V.Button, {size:'sm', variant:'primary'}, 'Select'),
+    h(V.Button, {size:'sm', icon:'restore'}, 'Restore'),
+    h(V.Button, {size:'sm', iconRight:'arrow', href:'#'}, 'Open project'),
+    h(V.Button, {size:'sm', variant:'ghost', icon:'copy', 'aria-label':'Copy id'}))));
+</script>
+</body>
+</html>

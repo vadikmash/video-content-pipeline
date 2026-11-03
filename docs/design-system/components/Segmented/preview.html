@@ -1,0 +1,13 @@
+<!-- @dsCard group="Inputs" height=72 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Segmented</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h(V.Segmented, {label:'Status', defaultValue:'new', options:[{value:'all',label:'All',count:48},{value:'new',label:'New',count:21},{value:'shortlisted',label:'Shortlisted',count:6},{value:'selected',label:'Selected',count:3},{value:'done',label:'Done',count:9},{value:'rejected',label:'Rejected',count:9}]}));
+</script>
+</body>
+</html>

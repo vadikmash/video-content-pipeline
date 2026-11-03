@@ -1,0 +1,19 @@
+<!-- @dsCard group="Screens" height=860 width=1200 page -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ProjectsScreen</title>
+<style>body{padding:16px} body{padding:0}</style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', null,
+  h(V.TopBar, {active:'projects', items:[{key:'ideas',label:'Ideas',href:'#',count:21},{key:'projects',label:'Projects',href:'#',attention:2}], right:h(V.LiveIndicator, {updated:'6s ago'})}),
+  h('main', {className:'vcp-page'},
+    h('div', {className:'vcp-page-head'}, h('div', null, h('h1', {className:'vcp-page-title'}, 'Projects'), h('p', {className:'vcp-page-sub'}, '2 waiting on you · 1 running'))),
+    h(V.ProjectList, {projects:S.projects}),
+    h('h2', {className:'vcp-kicker', style:{margin:'32px 0 8px'}}, 'Empty state'),
+    h(V.ProjectList, {projects:[]}))));
+</script>
+</body>
+</html>

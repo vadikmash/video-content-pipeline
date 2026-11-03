@@ -1,0 +1,13 @@
+<!-- @dsCard group="Layout" height=150 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>MetaList</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h(V.MetaList, {items:[{label:'Privacy', value:h(V.StatusBadge, {kind:'stage', status:'waiting', label:'Private', size:'sm'})},{label:'Remote id', value:'yt:Qm8xV2k1pLs', mono:true, copy:true},{label:'Title', value:'This honey is 3,000 years old, and still edible'},{label:'Tags', value:'history · egypt · honey · science', mono:true}]}));
+</script>
+</body>
+</html>
