@@ -7,6 +7,11 @@ body {
 a {
   color: inherit;
 }
+/* Components the reference draws as buttons are links here. */
+a.vcp-segmented-opt,
+a.vcp-notice-x {
+  text-decoration: none;
+}
 
 img,
 video {
@@ -30,6 +35,24 @@ h3 {
 /* Each action is its own server-action form; let the buttons lay out as if the forms weren't there. */
 .vcp-idea-actions > form {
   display: contents;
+}
+
+/* ---------- ideas page ---------- */
+.vcp-ideas-above {
+  margin-bottom: var(--space-3);
+}
+.vcp-add-idea {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+.vcp-add-idea-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  grid-column: 1 / -1;
 }
 
 /* ---------- script claims ---------- */
