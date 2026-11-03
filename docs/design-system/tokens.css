@@ -1,0 +1,80 @@
+/* VCP — generated from tokens.json */
+:root, [data-theme="dark"] {
+  --bg: #0e1012;
+  --surface: #15181b;
+  --surface-raised: #1c2024;
+  --surface-sunken: #0a0c0e;
+  --well: #000000;
+  --on-well: #f4f4f2;
+  --line: #262b30;
+  --line-strong: #626a73;
+  --ink: #e9ebee;
+  --ink-muted: #a4abb3;
+  --ink-faint: #858d96;
+  --signal: #f2b63d;
+  --signal-hover: #f6c461;
+  --on-signal: #1b1404;
+  --running: #7eabff;
+  --running-tint: #14213a;
+  --waiting: #f2b63d;
+  --waiting-tint: #2c220d;
+  --done: #52c4a3;
+  --done-tint: #0f2822;
+  --failed: #ff6d5e;
+  --failed-tint: #331816;
+  --focus: #9cc0ff;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+[data-theme="light"] {
+  --bg: #f3f2ee;
+  --surface: #ffffff;
+  --surface-raised: #f8f7f3;
+  --surface-sunken: #ebe9e3;
+  --well: #121416;
+  --on-well: #f4f4f2;
+  --line: #dedad2;
+  --line-strong: #8a857a;
+  --ink: #16181b;
+  --ink-muted: #4f555c;
+  --ink-faint: #646a71;
+  --signal: #e9a21f;
+  --signal-hover: #d99316;
+  --on-signal: #1b1404;
+  --running: #1d55c2;
+  --running-tint: #e5edfc;
+  --waiting: #8a5800;
+  --waiting-tint: #fbefd6;
+  --done: #0d7a5e;
+  --done-tint: #dff2ea;
+  --failed: #bf2a1c;
+  --failed-tint: #fbe5e1;
+  --focus: #1d55c2;
+  --shadow-pop: 0 8px 24px rgba(20, 18, 12, 0.14);
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --control-sm: 28px;
+  --control-md: 34px;
+  --control-touch: 44px;
+  --topbar-h: 48px;
+  --preview-w: 240px;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+.t-display { font-family: var(--font-sans); font-size: 24px; line-height: 30px; font-weight: 600; letter-spacing: -0.01em; }
+.t-title { font-family: var(--font-sans); font-size: 17px; line-height: 24px; font-weight: 600; }
+.t-heading { font-family: var(--font-sans); font-size: 15px; line-height: 20px; font-weight: 600; }
+.t-body { font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 400; }
+.t-small { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 400; }
+.t-label { font-family: var(--font-sans); font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: 0.06em; }
+.t-mono { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 400; }
+.t-mono-sm { font-family: var(--font-mono); font-size: 11px; line-height: 14px; font-weight: 400; }

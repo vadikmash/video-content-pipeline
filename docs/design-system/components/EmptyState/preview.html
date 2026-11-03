@@ -1,0 +1,14 @@
+<!-- @dsCard group="Feedback" height=220 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>EmptyState</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', {className:'vcp-list'},
+  h(V.EmptyState, {icon:'search', title:'Inbox is empty', action:h('div', {className:'vcp-row'}, h(V.Button, {variant:'primary', icon:'web'}, 'Source from web'), h(V.Button, {icon:'plus'}, 'Add idea'))}, 'Pull candidate facts from the web, or add one by hand.')));
+</script>
+</body>
+</html>

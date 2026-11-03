@@ -1,0 +1,42 @@
+<!-- @dsCard group="Screens" height=1100 width=1200 page -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>IdeasInboxScreen</title>
+<style>body{padding:16px} body{padding:0}</style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+function Inbox(){
+  var f = React.useState('all'), filter = f[0], setFilter = f[1];
+  var a = React.useState(false), adding = a[0], setAdding = a[1];
+  var ideas = S.ideas.filter(function(i){ return filter === 'all' || i.status === filter; });
+  var count = function(s){ return S.ideas.filter(function(i){ return s === 'all' || i.status === s; }).length; };
+  return h('div', null,
+    h(V.TopBar, {active:'ideas', items:[{key:'ideas',label:'Ideas',href:'#',count:S.ideas.length},{key:'projects',label:'Projects',href:'#',attention:2}]}),
+    h('main', {className:'vcp-page'},
+      h('div', {className:'vcp-page-head'},
+        h('div', null, h('h1', {className:'vcp-page-title'}, 'Ideas'), h('p', {className:'vcp-page-sub'}, 'Candidate facts. Select one to start a project.')),
+        h('div', {className:'vcp-row'},
+          h(V.Button, {icon:'plus', onClick:function(){ setAdding(!adding); }}, 'Add idea'),
+          h(V.Button, {variant:'primary', icon:'web'}, 'Source from web'))),
+      h('div', {className:'vcp-stack', style:{marginBottom:'12px'}},
+        h(V.Notice, {tone:'done', title:'Sourced 14 ideas', onDismiss:function(){}}, '12 added · 2 skipped as duplicates'),
+        adding && h(V.Panel, {title:'Add idea', actions:h(V.Button, {size:'sm', variant:'ghost', onClick:function(){ setAdding(false); }}, 'Cancel')},
+          h('div', {className:'vcp-stack', style:{gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:'12px 16px'}},
+            h(V.Field, {label:'Title'}, h(V.Input, null)),
+            h(V.Field, {label:'Domain'}, h(V.Select, {options:['history','nature','science','space','engineering','culture']})),
+            h(V.Field, {label:'One-liner'}, h(V.Input, null)),
+            h(V.Field, {label:'Why surprising'}, h(V.Input, null)),
+            h(V.Field, {label:'Evidence', optional:true, hint:'One URL or quote per line.'}, h(V.Textarea, {rows:2})),
+            h('div', {className:'vcp-stack', style:{alignContent:'end'}}, h(V.Checkbox, {label:'This is an opinion'}), h('div', null, h(V.Button, {variant:'primary', icon:'plus'}, 'Add to inbox')))))),
+      h('div', {className:'vcp-toolbar'},
+        h(V.Segmented, {label:'Status', value:filter, onChange:setFilter, options:['all','new','shortlisted','selected','done','rejected'].map(function(s){ return {value:s, label:s[0].toUpperCase()+s.slice(1), count:count(s)}; })}),
+        h(V.Select, {'aria-label':'Domain', options:[{value:'',label:'All domains'},'history','nature','science','space','engineering','culture']}),
+        h(V.Select, {'aria-label':'Origin', options:[{value:'',label:'Any origin'},'research','manual']})),
+      h('div', {className:'vcp-list'}, ideas.map(function(i){ return h(V.IdeaRow, {key:i.id, idea:i, projectHref:'#'}); }))));
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(Inbox));
+</script>
+</body>
+</html>

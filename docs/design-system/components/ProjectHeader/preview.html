@@ -1,0 +1,14 @@
+<!-- @dsCard group="Projects" height=190 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ProjectHeader</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h(V.ProjectHeader, {id:'p_0142', title:S.projects[0].title, oneLiner:S.projects[0].oneLiner, status:'waiting', stages:S.stages.script,
+  live:h(V.LiveIndicator, {updated:'4s ago'}), actions:h(V.Button, {size:'sm', variant:'ghost'}, 'Reject…')}));
+</script>
+</body>
+</html>

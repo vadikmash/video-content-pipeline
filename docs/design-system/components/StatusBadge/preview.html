@@ -1,0 +1,17 @@
+<!-- @dsCard group="Status" height=150 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>StatusBadge</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', {className:'vcp-stack'},
+  h('div', {className:'vcp-row'}, ['pending','running','waiting','done','failed'].map(function(s){ return h(V.StatusBadge, {key:s, status:s}); })),
+  h('div', {className:'vcp-row'}, ['active','waiting','published','rejected','failed'].map(function(s){ return h(V.StatusBadge, {key:s, kind:'project', status:s}); })),
+  h('div', {className:'vcp-row'}, ['new','shortlisted','selected','done','rejected'].map(function(s){ return h(V.StatusBadge, {key:s, kind:'idea', status:s, size:'sm'}); })),
+  h('div', {className:'vcp-row'}, ['sourced','unsourced','opinion'].map(function(s){ return h(V.StatusBadge, {key:s, kind:'claim', status:s, size:'sm'}); }))));
+</script>
+</body>
+</html>

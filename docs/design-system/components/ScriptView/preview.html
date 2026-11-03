@@ -1,0 +1,15 @@
+<!-- @dsCard group="Artifacts" height=620 -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ScriptView</title>
+<style>body{padding:16px} </style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', {style:{display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(340px,1fr))', gap:'24px'}},
+  h(V.ScriptView, {script:S.scripts.venus, editable:true}),
+  h(V.ScriptView, {script:S.scripts.venus, editable:true, defaultEditing:true})));
+</script>
+</body>
+</html>

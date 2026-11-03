@@ -1,0 +1,26 @@
+<!-- @dsCard group="Screens" height=1500 width=390 page -->
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>ProjectDetailMobile</title>
+<style>body{padding:16px} body{padding:0}</style></head>
+<body>
+<div id="root"></div>
+<script>
+var V = window.VCP, h = React.createElement, S = V.sample;
+var P = S.projects[0];
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', null,
+  h(V.TopBar, {active:'projects', items:[{key:'ideas',label:'Ideas',href:'#'},{key:'projects',label:'Projects',href:'#',attention:2}]}),
+  h('main', {className:'vcp-page'},
+    h(V.ProjectHeader, {id:P.id, title:P.title, oneLiner:P.oneLiner, status:P.status, stages:P.stages, live:h(V.LiveIndicator, {updated:'4s ago'})}),
+    h('div', {className:'vcp-stack'},
+      h(V.GateBanner, {gate:'script'}),
+      h(V.Panel, {title:'Stages', meta:'3/11 · Approve script', collapsible:true}, h(V.StageRail, {stages:P.stages})),
+      h(V.Panel, {title:'Script', meta:'v2 · 72 words', collapsible:true, defaultOpen:true}, h(V.ScriptView, {script:S.scripts.venus, editable:true})),
+      h(V.Panel, {title:'Brief & sources', meta:'4 sources', status:'done', collapsible:true}),
+      h(V.Panel, {title:'Narration', status:'pending', collapsible:true}),
+      h(V.Panel, {title:'Storyboard', status:'pending', collapsible:true}),
+      h(V.Panel, {title:'Render', status:'pending', collapsible:true}),
+      h(V.Panel, {title:'Upload', status:'pending', collapsible:true})))));
+</script>
+</body>
+</html>
