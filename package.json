@@ -1,0 +1,40 @@
+{
+  "name": "video-content-pipeline",
+  "private": true,
+  "packageManager": "pnpm@10.30.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "test:e2e": "E2E=1 pnpm --filter @vcp/pipeline test:e2e",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @vcp/db generate",
+    "db:migrate": "pnpm --filter @vcp/db migrate",
+    "db:seed": "pnpm --filter @vcp/db seed",
+    "db:reset": "docker compose down -v && pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed",
+    "browser:ensure": "pnpm --filter @vcp/pipeline exec remotion browser ensure"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.10",
+    "typescript": "^5.9.0",
+    "vitest": "^5.1.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.15"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "inngest-cli",
+      "sharp",
+      "@remotion/compositor-darwin-arm64",
+      "@remotion/compositor-linux-x64-gnu",
+      "@remotion/compositor-linux-arm64-gnu"
+    ]
+  }
+}

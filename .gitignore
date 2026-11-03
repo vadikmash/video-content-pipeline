@@ -1,0 +1,15 @@
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+.next/
+out/
+.data/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+coverage/
+apps/renderer/out/
+.remotion-bundle/

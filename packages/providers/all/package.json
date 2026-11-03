@@ -1,0 +1,34 @@
+{
+  "name": "@vcp/providers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vcp/core": "workspace:*",
+    "@vcp/provider-blob-local": "workspace:*",
+    "@vcp/provider-fake-align": "workspace:*",
+    "@vcp/provider-fake-clip": "workspace:*",
+    "@vcp/provider-fake-image": "workspace:*",
+    "@vcp/provider-fake-llm": "workspace:*",
+    "@vcp/provider-fake-publish": "workspace:*",
+    "@vcp/provider-fake-render": "workspace:*",
+    "@vcp/provider-fake-research": "workspace:*",
+    "@vcp/provider-fake-source": "workspace:*",
+    "@vcp/provider-fake-stock": "workspace:*",
+    "@vcp/provider-fake-tts": "workspace:*",
+    "@vcp/provider-render-remotion": "workspace:*",
+    "@vcp/provider-source-manual": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^5.1.0"
+  }
+}

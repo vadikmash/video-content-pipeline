@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vcp-postgres
+    environment:
+      POSTGRES_USER: vcp
+      POSTGRES_PASSWORD: vcp
+      POSTGRES_DB: vcp
+    ports:
+      - "5432:5432"
+    volumes:
+      - vcp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vcp -d vcp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  vcp_pgdata:

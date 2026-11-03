@@ -1,0 +1,27 @@
+{
+  "name": "@vcp/renderer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./props": "./src/props.ts",
+    "./entry": "./src/index.ts"
+  },
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:local": "remotion render src/index.ts FactShort out/fact-short.mp4 --props=fixtures/props.json",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.540",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "4.0.540",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^5.9.0"
+  }
+}

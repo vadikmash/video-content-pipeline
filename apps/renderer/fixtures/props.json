@@ -1,0 +1,23 @@
+{
+  "title": "Australia lost a war against emus",
+  "durationSec": 8,
+  "words": [
+    { "text": "In", "start": 0, "end": 0.4 },
+    { "text": "1932", "start": 0.4, "end": 0.8 },
+    { "text": "the", "start": 0.8, "end": 1.2 },
+    { "text": "Australian", "start": 1.2, "end": 1.6 },
+    { "text": "army", "start": 1.6, "end": 2.0 },
+    { "text": "fought", "start": 2.0, "end": 2.4 },
+    { "text": "emus.", "start": 2.4, "end": 2.8 },
+    { "text": "The", "start": 2.8, "end": 3.2 },
+    { "text": "emus", "start": 3.2, "end": 3.6 },
+    { "text": "won.", "start": 3.6, "end": 4.0 }
+  ],
+  "scenes": [
+    { "beatId": "beat-1", "start": 0, "end": 2.8, "text": "In 1932 the Australian army fought emus.", "kind": "type" },
+    { "beatId": "beat-2", "start": 2.8, "end": 5.5, "text": "The emus won.", "kind": "type" },
+    { "beatId": "beat-3", "start": 5.5, "end": 8, "text": "Sources in the description.", "kind": "type" }
+  ],
+  "sources": ["https://en.wikipedia.org/wiki/Great_Emu_War"],
+  "containsSyntheticMedia": false
+}
