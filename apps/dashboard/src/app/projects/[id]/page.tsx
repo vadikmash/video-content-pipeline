@@ -1,4 +1,4 @@
-import { STAGES, isGate, type Project, type Stage } from "@vcp/core";
+import { isGate, type Asset, type Brief, type Narration, type Render, type Scene, type Script, type StageName, type Storyboard, type Upload } from "@vcp/core";
 import {
   getAssets,
   getIdea,
@@ -11,28 +11,70 @@ import {
   latestUpload,
   listStages,
 } from "@vcp/db";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { Poller } from "@/components/Poller";
 import { ScriptEditor } from "@/components/ScriptEditor";
+import { AudioPlayer } from "@/components/ui/AudioPlayer";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { absoluteTime, hostOf, mediaTime } from "@/components/ui/format";
+import { GateBanner, type GateName } from "@/components/ui/GateBanner";
+import { Icon } from "@/components/ui/Icon";
+import { LiveIndicator } from "@/components/ui/LiveIndicator";
+import { MetaList } from "@/components/ui/MetaList";
+import { Notice } from "@/components/ui/Notice";
+import { Panel } from "@/components/ui/Panel";
+import { ProjectHeader } from "@/components/ui/ProjectHeader";
+import { RejectControl } from "@/components/ui/RejectControl";
+import { ScriptBody, scriptMeta } from "@/components/ui/ScriptView";
+import { StageRail } from "@/components/ui/StageRail";
+import { currentIndex, toStageRuns } from "@/components/ui/stages";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { StoryboardTable, type StoryboardRow } from "@/components/ui/StoryboardTable";
+import { Tag } from "@/components/ui/Tag";
+import type { MetaItem, StageRun } from "@/components/ui/types";
+import { VerticalPreview } from "@/components/ui/VerticalPreview";
 import { blobUrl } from "@/lib/blob";
 import { approveScript, approveVideo, publishUpload, rejectProject } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const STATUS_CLASS: Record<Project["status"], string> = {
-  active: "info",
-  waiting: "accent",
-  rejected: "bad",
-  failed: "bad",
-  published: "ok",
+type ArtifactKey = "brief" | "script" | "narration" | "storyboard" | "render" | "upload";
+
+const PIPELINE_ORDER: ArtifactKey[] = ["brief", "script", "narration", "storyboard", "render", "upload"];
+
+/** The stage whose output each panel shows; its status is the panel's status. */
+const PRODUCER: Record<ArtifactKey, StageName> = {
+  brief: "research",
+  script: "write",
+  narration: "voice",
+  storyboard: "storyboard",
+  render: "render",
+  upload: "upload",
 };
 
-function fmtDuration(s?: Stage): string {
-  if (!s?.startedAt) return "";
-  const end = s.finishedAt ? new Date(s.finishedAt).getTime() : Date.now();
-  const ms = end - new Date(s.startedAt).getTime();
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+const EMPTY_HINT: Record<ArtifactKey, string> = {
+  brief: "Research writes it from the idea's evidence.",
+  script: "Write drafts it from the brief.",
+  narration: "Voice records it after the script is approved.",
+  storyboard: "Storyboard and Assets build it from the narration.",
+  render: "Render assembles it from the storyboard.",
+  upload: "Uploads as private after you approve the video.",
+};
+
+const GATE_LAYOUT: Record<GateName, { order: ArtifactKey[]; open: ArtifactKey[] }> = {
+  "approve-script": { order: ["script", "brief", "narration", "storyboard", "render", "upload"], open: ["script"] },
+  "approve-video": { order: ["render", "storyboard", "narration", "script", "brief", "upload"], open: ["render", "storyboard"] },
+  "approve-publish": { order: ["upload", "render", "storyboard", "narration", "script", "brief"], open: ["upload"] },
+};
+
+interface Artifacts {
+  brief?: Brief;
+  script?: Script;
+  narration?: Narration;
+  storyboard?: Storyboard;
+  render?: Render;
+  upload?: Upload;
 }
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -50,316 +92,409 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     latestRender(id),
     latestUpload(id),
   ]);
-  const stages = new Map(stageRows.map((s) => [s.name, s]));
+  const artifacts: Artifacts = { brief, script, narration, storyboard, render, upload };
   const assetIds = storyboard?.scenes.map((s) => s.assetId).filter((x): x is string => Boolean(x)) ?? [];
   const assets = new Map((await getAssets(assetIds)).map((a) => [a.id, a]));
   const inngestUrl = process.env.INNGEST_BASE_URL ?? "http://localhost:8288";
+  const runs = toStageRuns(stageRows, inngestUrl);
   const live = project.status === "active" || project.status === "waiting";
-  const gate = project.status === "waiting" ? project.currentStage : undefined;
-  const canEditScript = gate === "approve-script" && !!script;
+  const stage = project.status === "waiting" ? project.currentStage : undefined;
+  const gate = stage && isGate(stage) ? (stage as GateName) : undefined;
+  const reject = rejectProject.bind(null, project.id);
+
+  const ci = currentIndex(runs);
+  const doneCount = runs.filter((r) => r.status === "done").length;
+  const failedRun = project.status === "failed" ? runs.find((r) => r.status === "failed") : undefined;
+
+  const layout = gate ? GATE_LAYOUT[gate] : undefined;
+  const order = layout?.order ?? PIPELINE_ORDER;
+  const open = layout?.open ?? latestAvailable(artifacts);
+  const statusOf = (k: ArtifactKey) => runs.find((r) => r.key === PRODUCER[k])!.status;
+  const assetsFailed = runs.find((r) => r.key === "assets")!.status === "failed";
+
+  const panels: Record<ArtifactKey, () => ReactNode> = {
+    brief: () => (
+      <Panel
+        key="brief"
+        title="Brief & sources"
+        meta={brief ? plural(brief.sources.length, "source") : undefined}
+        status={statusOf("brief")}
+        collapsible
+        defaultOpen={open.includes("brief")}
+      >
+        {brief ? <BriefBody brief={brief} /> : <Empty k="brief" runs={runs} live={live} />}
+      </Panel>
+    ),
+    script: () => (
+      <Panel
+        key="script"
+        title="Script"
+        meta={
+          script ? (
+            <>
+              v{script.version}
+              {script.reviewedBy ? ` · reviewed by ${script.reviewedBy}` : ""}
+              {script.provider === "user-edit" ? (
+                <>
+                  {" "}
+                  <Tag icon="edit">hand-edited</Tag>
+                </>
+              ) : null}
+            </>
+          ) : undefined
+        }
+        status={statusOf("script")}
+        collapsible
+        defaultOpen={open.includes("script")}
+      >
+        {script ? (
+          <ScriptEditor
+            projectId={project.id}
+            script={script}
+            meta={scriptMeta(script)}
+            editable={gate === "approve-script"}
+          >
+            <ScriptBody script={script} />
+          </ScriptEditor>
+        ) : (
+          <Empty k="script" runs={runs} live={live} />
+        )}
+      </Panel>
+    ),
+    narration: () => (
+      <Panel
+        key="narration"
+        title="Narration"
+        meta={narration ? mediaTime(narration.durationSec) : undefined}
+        status={statusOf("narration")}
+        collapsible
+        defaultOpen={open.includes("narration")}
+      >
+        {narration ? (
+          <AudioPlayer
+            src={blobUrl(narration.audioBlob.key)}
+            duration={narration.durationSec}
+            title={script ? `Narration · v${script.version}` : "Narration"}
+            seed={narration.words.length}
+            meta={
+              <span className="vcp-mono">
+                {narration.durationSec.toFixed(1)}s · {narration.words.length} words · {narration.provider}
+                {narration.alignerProvider ? ` + ${narration.alignerProvider}` : ""}
+              </span>
+            }
+          />
+        ) : (
+          <Empty k="narration" runs={runs} live={live} />
+        )}
+      </Panel>
+    ),
+    storyboard: () => (
+      <Panel
+        key="storyboard"
+        title="Storyboard"
+        meta={
+          storyboard
+            ? storyboardMeta(storyboard, assets)
+            : undefined
+        }
+        status={statusOf("storyboard")}
+        actions={storyboard?.containsSyntheticMedia ? <Tag tone="waiting">synthetic media</Tag> : undefined}
+        collapsible
+        defaultOpen={open.includes("storyboard")}
+      >
+        {storyboard ? (
+          <StoryboardTable rows={storyboardRows(storyboard, assets, script, assetsFailed)} />
+        ) : (
+          <Empty k="storyboard" runs={runs} live={live} />
+        )}
+      </Panel>
+    ),
+    render: () => (
+      <Panel
+        key="render"
+        title="Render"
+        meta={render ? `${render.templateId}@${render.templateVersion} · ${mediaTime(render.durationSec)}` : undefined}
+        status={statusOf("render")}
+        collapsible
+        defaultOpen={open.includes("render")}
+      >
+        {render ? (
+          <VerticalPreview
+            src={blobUrl(render.blob.key)}
+            poster={render.thumbnailBlob ? blobUrl(render.thumbnailBlob.key) : undefined}
+            meta={renderMeta(render)}
+            downloadHref={blobUrl(render.blob.key)}
+            thumbnailHref={render.thumbnailBlob ? blobUrl(render.thumbnailBlob.key) : undefined}
+          />
+        ) : (
+          <Empty k="render" runs={runs} live={live} />
+        )}
+      </Panel>
+    ),
+    upload: () => (
+      <Panel
+        key="upload"
+        title="Upload"
+        meta={upload ? `${upload.provider} · ${upload.status}` : undefined}
+        status={statusOf("upload")}
+        collapsible
+        defaultOpen={open.includes("upload")}
+      >
+        {upload ? <MetaList items={uploadMeta(upload)} className="vcp-upload-meta" /> : <Empty k="upload" runs={runs} live={live} />}
+      </Panel>
+    ),
+  };
+
+  const rail = <StageRail stages={runs} />;
 
   return (
     <>
       <Poller enabled={live} />
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>{idea?.title ?? project.ideaId}</h1>
-          <div className="muted small">
-            {idea?.oneLiner} · project {project.id}
-            {project.dryRun ? " · dry run" : ""}
-          </div>
-        </div>
-        <div className="row">
-          <span className={`badge ${STATUS_CLASS[project.status]}`}>{project.status}</span>
-          <span className="muted small">{project.currentStage ?? "queued"}</span>
-        </div>
-      </div>
+      <ProjectHeader
+        id={project.id}
+        title={idea?.title ?? project.ideaId}
+        oneLiner={idea?.oneLiner}
+        status={project.status}
+        stages={runs}
+        tags={project.dryRun ? <Tag>dry run</Tag> : undefined}
+        live={live ? <LiveIndicator updatedAt={Date.now()} /> : undefined}
+        actions={project.status === "active" ? <RejectControl action={reject} /> : undefined}
+      />
 
       {project.rejectReason ? (
-        <div className="panel" style={{ borderColor: "var(--bad)" }}>
-          Rejected: {project.rejectReason}
+        <Notice tone="failed" title="Rejected" className="vcp-detail-notice">
+          {project.rejectReason}
+        </Notice>
+      ) : failedRun ? (
+        <Notice tone="failed" title={`Failed at ${failedRun.label}`} className="vcp-detail-notice">
+          {failedRun.error ?? "See the run logs in the stage rail."}
+        </Notice>
+      ) : null}
+
+      <div className="vcp-detail">
+        <aside className="vcp-detail-rail vcp-detail-rail--wide">
+          <div className="vcp-detail-rail-head">
+            <span className="vcp-kicker">Pipeline</span>
+            <span className="vcp-mono vcp-faint">
+              {doneCount}/{runs.length} done
+            </span>
+          </div>
+          {rail}
+        </aside>
+        <div className="vcp-stack">
+          {gate ? (
+            <GateBanner
+              gate={gate}
+              approveAction={
+                gate === "approve-script"
+                  ? approveScript.bind(null, project.id)
+                  : gate === "approve-video"
+                    ? approveVideo.bind(null, project.id)
+                    : publishUpload.bind(null, project.id)
+              }
+              rejectAction={reject}
+              disabled={gate === "approve-script" ? !script : gate === "approve-video" ? !render : !upload}
+            />
+          ) : null}
+          <Panel
+            title="Stages"
+            meta={`${ci + 1}/${runs.length} · ${runs[ci]!.label}`}
+            collapsible
+            className="vcp-detail-rail--narrow"
+          >
+            {rail}
+          </Panel>
+          {order.map((k) => panels[k]())}
         </div>
-      ) : null}
-
-      <section className="panel">
-        <h2 style={{ marginTop: 0 }}>Stages</h2>
-        <div className="rail">
-          {STAGES.map((name) => {
-            const s = stages.get(name);
-            const status = s?.status ?? "pending";
-            return (
-              <div key={name} className={`stage ${status}`}>
-                <div className="name">
-                  {isGate(name) ? "⏸ " : ""}
-                  {name}
-                </div>
-                <div className="small muted">{status}</div>
-                {s?.providerId ? <div className="small">{s.providerId}</div> : null}
-                <div className="small muted">
-                  {fmtDuration(s)}
-                  {s && s.attempt > 1 ? ` · attempt ${s.attempt}` : ""}
-                </div>
-                {s?.runId ? (
-                  <a className="small" href={`${inngestUrl}/run?runID=${s.runId}`} target="_blank" rel="noreferrer">
-                    run
-                  </a>
-                ) : null}
-                {s?.error ? (
-                  <div className="small" style={{ color: "var(--bad)" }}>
-                    {s.error}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {gate ? (
-        <section className="panel" style={{ borderColor: "var(--accent)" }}>
-          <h2 style={{ marginTop: 0 }}>Waiting on you: {gate}</h2>
-          <GateActions projectId={project.id} gate={gate} hasScript={!!script} hasRender={!!render} hasUpload={!!upload} />
-        </section>
-      ) : null}
-
-      {live ? (
-        <section className="panel">
-          <form action={rejectProject.bind(null, project.id)} className="row">
-            <input name="reason" placeholder="Reject with a reason (stops the run; nothing is deleted)" style={{ flex: 1 }} />
-            <button type="submit" className="danger">
-              Reject
-            </button>
-          </form>
-        </section>
-      ) : null}
-
-      <div className="grid2">
-        <section className="panel">
-          <h2 style={{ marginTop: 0 }}>Brief</h2>
-          {brief ? (
-            <>
-              <p>{brief.summary}</p>
-              <p className="muted">{brief.angle}</p>
-              <div className="small">
-                Sources:
-                <ul>
-                  {brief.sources.map((s) => (
-                    <li key={s}>
-                      <a href={s} target="_blank" rel="noreferrer">
-                        {s}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          ) : (
-            <p className="muted">Not yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 style={{ marginTop: 0 }}>
-            Script {script ? `v${script.version}` : ""}{" "}
-            {script?.reviewedBy ? <span className="badge ok">reviewed by {script.reviewedBy}</span> : null}
-          </h2>
-          {script ? (
-            <>
-              {script.provider === "user-edit" ? <span className="badge accent">hand-edited</span> : null}
-              <ScriptEditor projectId={project.id} script={script} editable={canEditScript} />
-              <details>
-                <summary className="small">claims</summary>
-                <ul className="small">
-                  {script.claims.map((c, i) => (
-                    <li key={i}>
-                      {c.text} —{" "}
-                      <a href={c.sourceUrl} target="_blank" rel="noreferrer">
-                        source
-                      </a>{" "}
-                      ({Math.round(c.confidence * 100)}%)
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </>
-          ) : (
-            <p className="muted">Not yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 style={{ marginTop: 0 }}>Narration</h2>
-          {narration ? (
-            <>
-              <audio controls src={blobUrl(narration.audioBlob.key)} style={{ width: "100%" }} />
-              <div className="small muted">
-                {narration.durationSec.toFixed(1)}s · {narration.words.length} words · {narration.provider}
-                {narration.alignerProvider ? ` + ${narration.alignerProvider}` : ""}
-              </div>
-            </>
-          ) : (
-            <p className="muted">Not yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 style={{ marginTop: 0 }}>
-            Storyboard {storyboard ? `v${storyboard.version}` : ""}{" "}
-            {storyboard?.containsSyntheticMedia ? <span className="badge warn">synthetic media</span> : null}
-          </h2>
-          {storyboard ? (
-            <table>
-              <thead>
-                <tr>
-                  <th>Beat</th>
-                  <th>Time</th>
-                  <th>Visual</th>
-                  <th>Asset</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storyboard.scenes.map((sc) => {
-                  const a = sc.assetId ? assets.get(sc.assetId) : undefined;
-                  return (
-                    <tr key={sc.beatId}>
-                      <td>{sc.beatId}</td>
-                      <td className="small">
-                        {sc.start.toFixed(1)}–{sc.end.toFixed(1)}s
-                      </td>
-                      <td className="small">
-                        <span className="badge">{sc.visual.kind}</span>{" "}
-                        {"query" in sc.visual ? sc.visual.query : "prompt" in sc.visual ? sc.visual.prompt : ""}
-                      </td>
-                      <td className="small">
-                        {a ? (
-                          <>
-                            {a.kind === "image" ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={blobUrl(a.blob.key)} alt="" style={{ width: 48, borderRadius: 4 }} />
-                            ) : null}
-                            <div>
-                              {a.provider}
-                              {a.synthetic ? " · synthetic" : ""}
-                            </div>
-                            <div className="muted">{a.attribution.text}</div>
-                          </>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          ) : (
-            <p className="muted">Not yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 style={{ marginTop: 0 }}>Render</h2>
-          {render ? (
-            <>
-              <video controls src={blobUrl(render.blob.key)} poster={render.thumbnailBlob ? blobUrl(render.thumbnailBlob.key) : undefined} />
-              <div className="small muted">
-                {render.durationSec.toFixed(1)}s · {render.width}×{render.height}@{render.fps} · {render.provider} ·{" "}
-                {render.templateId}@{render.templateVersion}
-              </div>
-              <a className="small" href={blobUrl(render.blob.key)} download>
-                download mp4
-              </a>
-            </>
-          ) : (
-            <p className="muted">Not yet.</p>
-          )}
-        </section>
-
-        <section className="panel">
-          <h2 style={{ marginTop: 0 }}>Upload</h2>
-          {upload ? (
-            <>
-              <div className="row">
-                <span className={`badge ${upload.privacy === "public" ? "ok" : "info"}`}>{upload.privacy}</span>
-                <span className="badge">{upload.status}</span>
-                {upload.containsSyntheticMedia ? <span className="badge warn">disclosure on</span> : null}
-              </div>
-              <div className="small" style={{ marginTop: 8 }}>
-                {upload.provider} · {upload.remoteId}
-                {upload.remoteUrl ? (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <a href={upload.remoteUrl} target="_blank" rel="noreferrer">
-                      remote
-                    </a>
-                  </>
-                ) : null}
-                {upload.publishAt ? ` · publish at ${new Date(upload.publishAt).toLocaleString()}` : ""}
-              </div>
-              <h2>Metadata</h2>
-              <div>
-                <strong>{upload.meta.title}</strong>
-              </div>
-              <pre>{upload.meta.description}</pre>
-              <div className="small muted">tags: {upload.meta.tags.join(", ")}</div>
-            </>
-          ) : (
-            <p className="muted">Not yet.</p>
-          )}
-        </section>
       </div>
-
-      <p className="small muted">
-        <Link href="/projects">← all projects</Link>
-      </p>
     </>
   );
 }
 
-function GateActions({
-  projectId,
-  gate,
-  hasScript,
-  hasRender,
-  hasUpload,
-}: {
-  projectId: string;
-  gate: string;
-  hasScript: boolean;
-  hasRender: boolean;
-  hasUpload: boolean;
-}) {
-  if (gate === "approve-script") {
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+/** The furthest artifact that exists, opened by default when no gate is waiting. */
+function latestAvailable(a: Artifacts): ArtifactKey[] {
+  const last = [...PIPELINE_ORDER].reverse().find((k) => a[k]);
+  return last ? [last] : [];
+}
+
+function Empty({ k, runs, live }: { k: ArtifactKey; runs: StageRun[]; live: boolean }) {
+  const run = runs.find((r) => r.key === PRODUCER[k])!;
+  if (run.status === "failed") {
     return (
-      <form action={approveScript.bind(null, projectId)} className="row">
-        <span className="muted">Edit the script first if needed, then approve.</span>
-        <button type="submit" className="primary" disabled={!hasScript}>
-          Approve script
-        </button>
-      </form>
+      <EmptyState compact icon="alert" title={`${run.label} failed`}>
+        {run.error ?? "See the run logs in the stage rail."}
+      </EmptyState>
     );
   }
-  if (gate === "approve-video") {
+  if (!live) {
     return (
-      <form action={approveVideo.bind(null, projectId)} className="row">
-        <span className="muted">Watch the render below. Approving uploads it as private.</span>
-        <button type="submit" className="primary" disabled={!hasRender}>
-          Approve video
-        </button>
-      </form>
+      <EmptyState compact icon="x" title="Not produced">
+        The run stopped before {run.label}.
+      </EmptyState>
     );
   }
-  if (gate === "approve-publish") {
-    return (
-      <form action={publishUpload.bind(null, projectId)} className="row">
-        <span className="muted">Publish now, or pick a time:</span>
-        <input type="datetime-local" name="publishAt" style={{ width: 240 }} />
-        <button type="submit" className="primary" disabled={!hasUpload}>
-          Publish
-        </button>
-      </form>
-    );
+  return (
+    <EmptyState compact icon={run.status === "running" ? "running" : "pending"} title={`Waiting on ${run.label}`}>
+      {EMPTY_HINT[k]}
+    </EmptyState>
+  );
+}
+
+function BriefBody({ brief }: { brief: Brief }) {
+  return (
+    <div className="vcp-brief">
+      <div>
+        <span className="vcp-kicker">Summary</span>
+        <p>{brief.summary}</p>
+      </div>
+      <div>
+        <span className="vcp-kicker">Angle</span>
+        <p className="vcp-muted">{brief.angle}</p>
+      </div>
+      {brief.evidence.length > 0 ? (
+        <div>
+          <span className="vcp-kicker">Evidence</span>
+          <ul className="vcp-evidence">
+            {brief.evidence.map((e, k) => (
+              <li key={k}>
+                <q>{e.quote}</q>
+                <a href={e.url} target="_blank" rel="noreferrer" title={e.title ?? e.url}>
+                  {hostOf(e.url)}
+                  <Icon name="external" size={12} />
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      <div>
+        <span className="vcp-kicker">Sources</span>
+        <ul className="vcp-evidence vcp-brief-sources">
+          {brief.sources.map((s) => (
+            <li key={s}>
+              <a href={s} target="_blank" rel="noreferrer">
+                {s.replace(/^https?:\/\/(www\.)?/, "")}
+                <Icon name="external" size={12} />
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Type and diagram scenes are drawn by the template and never get an asset. */
+function needsAsset(scene: Scene): boolean {
+  return scene.visual.kind === "stock" || scene.visual.kind === "still" || scene.visual.kind === "clip";
+}
+
+function visualText(scene: Scene, script?: Script): string {
+  const v = scene.visual;
+  if (v.kind === "stock") return v.query;
+  if (v.kind === "still" || v.kind === "clip") return v.prompt;
+  if (v.kind === "type") {
+    const text =
+      scene.beatId === "hook"
+        ? script?.hook
+        : scene.beatId === "outro"
+          ? script?.outro
+          : script?.beats.find((b) => b.id === scene.beatId)?.text;
+    return text ?? "On-screen text";
   }
-  return <span className="muted">Unknown gate {gate}</span>;
+  return "Diagram";
+}
+
+function storyboardMeta(storyboard: Storyboard, assets: Map<string, Asset>): string {
+  const needed = storyboard.scenes.filter(needsAsset);
+  const ready = needed.filter((s) => s.assetId && assets.has(s.assetId)).length;
+  return [`v${storyboard.version}`, plural(storyboard.scenes.length, "beat"), `${ready}/${needed.length} assets`].join(" · ");
+}
+
+function storyboardRows(
+  storyboard: Storyboard,
+  assets: Map<string, Asset>,
+  script: Script | undefined,
+  assetsFailed: boolean,
+): StoryboardRow[] {
+  return storyboard.scenes.map((sc, k) => {
+    const a = sc.assetId ? assets.get(sc.assetId) : undefined;
+    const credit = a ? `${a.attribution.text || a.provider}${a.synthetic ? " · synthetic" : ""}` : undefined;
+    return {
+      beat: k + 1,
+      time: `${mediaTime(sc.start)}–${mediaTime(sc.end)}`,
+      kind: sc.visual.kind,
+      visual: visualText(sc, script),
+      thumb: a?.kind === "image" ? blobUrl(a.blob.key) : undefined,
+      assetStatus: a || !needsAsset(sc) ? "ready" : assetsFailed ? "failed" : "missing",
+      assetName: a ? `${a.provider} · ${a.kind} · ${a.licence}` : undefined,
+      attribution:
+        a && credit ? (
+          a.attribution.url ? (
+            <a href={a.attribution.url} target="_blank" rel="noreferrer">
+              {credit}
+            </a>
+          ) : (
+            credit
+          )
+        ) : undefined,
+    };
+  });
+}
+
+function renderMeta(render: Render): MetaItem[] {
+  return [
+    { label: "Resolution", value: `${render.width} × ${render.height} @ ${render.fps}`, mono: true },
+    { label: "Duration", value: `${render.durationSec.toFixed(1)}s`, mono: true },
+    { label: "Provider", value: render.provider, mono: true },
+    { label: "Template", value: `${render.templateId}@${render.templateVersion}`, mono: true },
+  ];
+}
+
+function uploadMeta(upload: Upload): MetaItem[] {
+  const items: MetaItem[] = [
+    {
+      label: "Privacy",
+      value: <StatusBadge kind="privacy" status={upload.privacy} size="sm" />,
+    },
+    { label: "Status", value: upload.status, mono: true },
+    { label: "Remote ID", value: upload.remoteId, mono: true, copy: true },
+    { label: "Provider", value: upload.provider, mono: true },
+  ];
+  if (upload.publishAt) items.push({ label: "Publish at", value: absoluteTime(upload.publishAt), mono: true });
+  if (upload.remoteUrl) {
+    items.push({
+      label: "Link",
+      value: (
+        <a href={upload.remoteUrl} target="_blank" rel="noreferrer">
+          {hostOf(upload.remoteUrl)}
+        </a>
+      ),
+    });
+  }
+  items.push(
+    { label: "Title", value: upload.meta.title },
+    { label: "Description", value: <span className="vcp-upload-desc">{upload.meta.description}</span> },
+    {
+      label: "Tags",
+      value: upload.meta.tags.length ? (
+        <span className="vcp-upload-tags">
+          {upload.meta.tags.map((t) => (
+            <Tag key={t}>{t}</Tag>
+          ))}
+        </span>
+      ) : (
+        "—"
+      ),
+    },
+    {
+      label: "Disclosure",
+      value: upload.containsSyntheticMedia ? <Tag tone="waiting">synthetic media disclosed</Tag> : "none",
+    },
+  );
+  return items;
 }

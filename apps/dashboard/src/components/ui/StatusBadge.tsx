@@ -31,6 +31,11 @@ const STATUS = {
     unsourced: ["failed", "alert", "Unsourced"],
     opinion: ["waiting", "dot", "Opinion"],
   },
+  privacy: {
+    private: ["neutral", "dot", "Private"],
+    unlisted: ["neutral", "dot", "Unlisted"],
+    public: ["done", "check", "Public"],
+  },
 } satisfies Record<string, Record<string, Spec>>;
 
 export type StatusKind = keyof typeof STATUS;

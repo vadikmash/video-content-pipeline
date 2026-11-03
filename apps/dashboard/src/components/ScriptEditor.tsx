@@ -1,52 +1,50 @@
 "use client";
 
 import type { Script } from "@vcp/core";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { saveScriptEdit } from "@/app/projects/[id]/actions";
+import { Button } from "@/components/ui/Button";
+import { Notice } from "@/components/ui/Notice";
+import { ScriptBar } from "@/components/ui/ScriptBar";
+import { Tag } from "@/components/ui/Tag";
 
+/** The script panel body: `children` is the read view; "Edit script" swaps in a form that saves a new version. */
 export function ScriptEditor({
   projectId,
   script,
+  meta,
   editable,
+  children,
 }: {
   projectId: string;
   script: Script;
+  meta: string;
   editable: boolean;
+  children: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const next = script.version + 1;
 
   if (!editable || !editing) {
     return (
-      <>
-        <p>
-          <strong>Hook.</strong> {script.hook}
-        </p>
-        <ol>
-          {script.beats.map((b) => (
-            <li key={b.id}>
-              {b.text} <span className="badge">{b.visual.kind}</span>
-            </li>
-          ))}
-        </ol>
-        <p>
-          <strong>Outro.</strong> {script.outro}
-        </p>
-        <div className="small muted" style={{ marginBottom: 10 }}>
-          ~{script.estimatedSeconds}s · {script.claims.length} claims · {script.provider}
-        </div>
-        {editable ? (
-          <button type="button" onClick={() => setEditing(true)}>
-            Edit script
-          </button>
-        ) : null}
-      </>
+      <div className="vcp-script">
+        <ScriptBar meta={meta}>
+          {editable ? (
+            <Button type="button" size="sm" icon="edit" onClick={() => setEditing(true)}>
+              Edit script
+            </Button>
+          ) : null}
+        </ScriptBar>
+        {children}
+      </div>
     );
   }
 
   return (
     <form
+      className="vcp-script vcp-script--editing"
       action={(fd) => {
         setError(null);
         startTransition(async () => {
@@ -59,41 +57,54 @@ export function ScriptEditor({
         });
       }}
     >
-      <label>Hook</label>
-      <textarea name="hook" defaultValue={script.hook} required rows={3} />
-
-      {script.beats.map((b, i) => (
-        <div key={b.id} style={{ marginTop: 10 }}>
-          <div className="row" style={{ justifyContent: "space-between" }}>
-            <label style={{ margin: 0 }}>
-              Beat {i + 1} ({b.id})
-            </label>
-            <span className="badge">{b.visual.kind}</span>
-          </div>
-          <textarea name={`beat:${b.id}`} defaultValue={b.text} required rows={3} />
-        </div>
-      ))}
-
-      <label>Outro</label>
-      <textarea name="outro" defaultValue={script.outro} required rows={2} />
+      <ScriptBar meta={`Editing v${script.version} → saves as v${next}`}>
+        <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => setEditing(false)}>
+          Cancel
+        </Button>
+        <Button size="sm" variant="primary" disabled={pending}>
+          {pending ? "Saving…" : `Save v${next}`}
+        </Button>
+      </ScriptBar>
 
       {error ? (
-        <div className="small" style={{ color: "var(--bad)", marginTop: 8 }}>
+        <Notice tone="failed" title="Couldn't save" role="alert">
           {error}
-        </div>
+        </Notice>
       ) : null}
 
-      <div className="row" style={{ marginTop: 12 }}>
-        <button type="submit" className="primary" disabled={pending}>
-          {pending ? "Saving…" : "Save as new version"}
-        </button>
-        <button type="button" disabled={pending} onClick={() => setEditing(false)}>
-          Cancel
-        </button>
+      <label className="vcp-field">
+        <span className="vcp-kicker">Hook</span>
+        <textarea className="vcp-input vcp-textarea" name="hook" defaultValue={script.hook} required rows={2} />
+      </label>
+
+      <div>
+        <span className="vcp-kicker">Beats</span>
+        <ol className="vcp-beats">
+          {script.beats.map((b, k) => (
+            <li key={b.id} className="vcp-beat vcp-beat--edit">
+              <span className="vcp-beat-n">{String(k + 1).padStart(2, "0")}</span>
+              <textarea
+                className="vcp-input vcp-textarea"
+                name={`beat:${b.id}`}
+                aria-label={`Beat ${k + 1}`}
+                defaultValue={b.text}
+                required
+                rows={2}
+              />
+              <Tag className="vcp-beat-kind" title="Visual kind; kept on save">
+                {b.visual.kind}
+              </Tag>
+            </li>
+          ))}
+        </ol>
       </div>
-      <p className="small muted">
-        Saves a new script version. Claims and visual intents are kept. Approve uses the latest version.
-      </p>
+
+      <label className="vcp-field">
+        <span className="vcp-kicker">Outro</span>
+        <textarea className="vcp-input vcp-textarea" name="outro" defaultValue={script.outro} required rows={1} />
+      </label>
+
+      <p className="vcp-field-hint">Claims and visual intents are kept. Approve uses the latest version.</p>
     </form>
   );
 }

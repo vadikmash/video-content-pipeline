@@ -64,6 +64,36 @@ h3 {
   color: var(--failed);
 }
 
+/* ---------- project detail ---------- */
+.vcp-detail-notice {
+  margin-bottom: var(--space-4);
+}
+.vcp-brief {
+  display: grid;
+  gap: var(--space-4);
+}
+.vcp-brief p {
+  margin-top: 4px;
+  text-wrap: pretty;
+}
+.vcp-brief-sources a {
+  overflow-wrap: anywhere;
+}
+.vcp-upload-desc {
+  white-space: pre-wrap;
+}
+.vcp-upload-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Edit mode shows the visual kind read-only, in the column the reference gives a select. */
+.vcp-beat--edit > .vcp-tag {
+  justify-self: start;
+  margin-top: 8px;
+}
+
 /* ---------- header reject popover ---------- */
 .vcp-reject-ctl {
   position: relative;
