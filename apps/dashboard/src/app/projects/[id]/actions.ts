@@ -1,6 +1,15 @@
 "use server";
 
-import { getProject, latestRender, latestScript, latestUpload, logEvent } from "@vcp/db";
+import { Script, newId, scriptText } from "@vcp/core";
+import {
+  getProject,
+  insertScript,
+  latestRender,
+  latestScript,
+  latestUpload,
+  logEvent,
+  nextScriptVersion,
+} from "@vcp/db";
 import { revalidatePath } from "next/cache";
 import { sendEvent } from "@/lib/inngest";
 
@@ -8,6 +17,47 @@ async function requireProject(id: string) {
   const p = await getProject(id);
   if (!p) throw new Error("project not found");
   return p;
+}
+
+/** Append a hand-edited script version while the approve-script gate is open. */
+export async function saveScriptEdit(projectId: string, formData: FormData): Promise<void> {
+  const project = await requireProject(projectId);
+  if (project.status !== "waiting" || project.currentStage !== "approve-script") {
+    throw new Error("Script can only be edited while waiting at the approve-script gate");
+  }
+  const current = await latestScript(projectId);
+  if (!current) throw new Error("no script to edit");
+
+  const hook = String(formData.get("hook") ?? "").trim();
+  const outro = String(formData.get("outro") ?? "").trim();
+  if (!hook || !outro) throw new Error("hook and outro are required");
+
+  const beats = current.beats.map((b) => {
+    const text = String(formData.get(`beat:${b.id}`) ?? "").trim();
+    if (!text) throw new Error(`beat ${b.id} is empty`);
+    return { ...b, text };
+  });
+
+  const draft = { hook, beats, outro, claims: current.claims, estimatedSeconds: current.estimatedSeconds };
+  const words = scriptText(draft).split(/\s+/).filter(Boolean).length;
+  const estimatedSeconds = Math.max(12, Math.round(words / 2.5));
+  const version = await nextScriptVersion(projectId);
+  const next = Script.parse({
+    id: newId(),
+    projectId,
+    ideaId: current.ideaId,
+    version,
+    hook,
+    beats,
+    outro,
+    claims: current.claims,
+    estimatedSeconds,
+    provider: "user-edit",
+    createdAt: new Date().toISOString(),
+  });
+  await insertScript(next);
+  await logEvent(projectId, "script.edited", { scriptId: next.id, version, fromVersion: current.version });
+  revalidatePath(`/projects/${projectId}`);
 }
 
 export async function approveScript(projectId: string): Promise<void> {

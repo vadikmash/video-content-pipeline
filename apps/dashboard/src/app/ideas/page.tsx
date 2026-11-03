@@ -1,11 +1,11 @@
 import { Domain, IdeaStatus, type Idea } from "@vcp/core";
 import { listIdeas } from "@vcp/db";
 import Link from "next/link";
-import { addIdea, rejectIdea, restoreIdea, selectIdea, shortlistIdea } from "./actions";
+import { addIdea, discoverIdeas, rejectIdea, restoreIdea, selectIdea, shortlistIdea } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-type Search = { status?: string; domain?: string; origin?: string };
+type Search = { status?: string; domain?: string; origin?: string; sourced?: string; skipped?: string; via?: string };
 
 const STATUS_CLASS: Record<Idea["status"], string> = {
   new: "",
@@ -18,10 +18,24 @@ const STATUS_CLASS: Record<Idea["status"], string> = {
 export default async function IdeasPage({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
   const ideas = await listIdeas({ status: sp.status, domain: sp.domain, origin: sp.origin });
+  const sourced = sp.sourced ? Number(sp.sourced) : null;
 
   return (
     <>
-      <h1>Ideas</h1>
+      <div className="row" style={{ justifyContent: "space-between", marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>Ideas</h1>
+        <form action={discoverIdeas}>
+          <button type="submit" className="primary">
+            Source from web
+          </button>
+        </form>
+      </div>
+      {sourced !== null ? (
+        <div className="panel" style={{ borderColor: "var(--ok)" }}>
+          Discovery via <code>{sp.via ?? "IdeaSource"}</code>: added <strong>{sourced}</strong>
+          {sp.skipped ? <> · skipped {sp.skipped} duplicates</> : null}. Select the ones you want below.
+        </div>
+      ) : null}
 
       <div className="grid2">
         <section className="panel">

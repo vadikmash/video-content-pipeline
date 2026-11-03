@@ -13,6 +13,7 @@
     "@vcp/core": "workspace:*",
     "@vcp/db": "workspace:*",
     "@vcp/provider-blob-local": "workspace:*",
+    "@vcp/provider-fake-source": "workspace:*",
     "inngest": "^4.26.2",
     "next": "^16.4.4",
     "react": "^19.3.1",

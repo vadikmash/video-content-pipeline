@@ -35,6 +35,9 @@ importers:
       '@vcp/provider-blob-local':
         specifier: workspace:*
         version: link:../../packages/providers/blob-local
+      '@vcp/provider-fake-source':
+        specifier: workspace:*
+        version: link:../../packages/providers/fake-source
       inngest:
         specifier: ^4.26.2
         version: 4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)

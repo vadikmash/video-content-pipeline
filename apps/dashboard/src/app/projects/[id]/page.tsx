@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Poller } from "@/components/Poller";
+import { ScriptEditor } from "@/components/ScriptEditor";
 import { blobUrl } from "@/lib/blob";
 import { approveScript, approveVideo, publishUpload, rejectProject } from "./actions";
 
@@ -55,6 +56,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const inngestUrl = process.env.INNGEST_BASE_URL ?? "http://localhost:8288";
   const live = project.status === "active" || project.status === "waiting";
   const gate = project.status === "waiting" ? project.currentStage : undefined;
+  const canEditScript = gate === "approve-script" && !!script;
 
   return (
     <>
@@ -163,20 +165,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </h2>
           {script ? (
             <>
-              <p>
-                <strong>Hook.</strong> {script.hook}
-              </p>
-              <ol>
-                {script.beats.map((b) => (
-                  <li key={b.id}>
-                    {b.text} <span className="badge">{b.visual.kind}</span>
-                  </li>
-                ))}
-              </ol>
-              <p>
-                <strong>Outro.</strong> {script.outro}
-              </p>
-              <div className="small muted">~{script.estimatedSeconds}s · {script.claims.length} claims</div>
+              {script.provider === "user-edit" ? <span className="badge accent">hand-edited</span> : null}
+              <ScriptEditor projectId={project.id} script={script} editable={canEditScript} />
               <details>
                 <summary className="small">claims</summary>
                 <ul className="small">
@@ -343,7 +333,7 @@ function GateActions({
   if (gate === "approve-script") {
     return (
       <form action={approveScript.bind(null, projectId)} className="row">
-        <span className="muted">Read the script and claims on the right.</span>
+        <span className="muted">Edit the script first if needed, then approve.</span>
         <button type="submit" className="primary" disabled={!hasScript}>
           Approve script
         </button>

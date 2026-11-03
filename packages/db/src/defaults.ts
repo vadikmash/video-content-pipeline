@@ -2,7 +2,7 @@ import type { PortName } from "@vcp/core";
 
 /** M0 default bindings: every port on a fake except the renderer and the blob store. */
 export const DEFAULT_PORT_BINDINGS: Record<PortName, { providerId: string; options?: Record<string, unknown> }> = {
-  IdeaSource: { providerId: "source-manual" },
+  IdeaSource: { providerId: "fake-source" },
   TextModel: { providerId: "fake-llm" },
   WebResearch: { providerId: "fake-research" },
   Speech: { providerId: "fake-tts" },
