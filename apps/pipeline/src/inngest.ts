@@ -17,4 +17,5 @@ export const events = {
   renderApproved: eventType("render.approved", { schema: EventSchemas["render.approved"] }),
   uploadPublish: eventType("upload.publish", { schema: EventSchemas["upload.publish"] }),
   projectRejected: eventType("project.rejected", { schema: EventSchemas["project.rejected"] }),
+  ideasDiscover: eventType("ideas.discover", { schema: EventSchemas["ideas.discover"] }),
 };

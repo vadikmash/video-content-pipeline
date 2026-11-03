@@ -12,6 +12,7 @@ export const EventSchemas = {
   "render.approved": z.object({ projectId: Id, renderId: Id }),
   "upload.publish": z.object({ projectId: Id, uploadId: Id, publishAt: IsoDate.optional() }),
   "project.rejected": z.object({ projectId: Id, stage: z.string(), reason: z.string() }),
+  "ideas.discover": z.object({ limit: z.number().int().positive().optional() }),
 } as const;
 
 export type EventName = keyof typeof EventSchemas;

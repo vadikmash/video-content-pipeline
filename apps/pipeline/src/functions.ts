@@ -1,6 +1,8 @@
 import { GATES, GATE_EVENTS, STAGES, isGate, previousStage, type GateName, type StageName } from "@vcp/core";
+import { insertIdea, listIdeas, loadPipelineConfig, logEvent } from "@vcp/db";
 import { Deferred } from "@vcp/limits";
 import { registry } from "@vcp/providers";
+import { runDiscovery } from "@vcp/providers/discover";
 import { NonRetriableError, RetryAfterError } from "inngest";
 import { events, inngest } from "./inngest";
 import {
@@ -133,12 +135,54 @@ export const onProjectRejected = inngest.createFunction(
 );
 
 // ---------------------------------------------------------------------------
+// Discovery (manual trigger + daily cron)
+// ---------------------------------------------------------------------------
+
+async function discoverIdeasStep(limit?: number) {
+  const config = await loadPipelineConfig();
+  const providerId = config.ports.IdeaSource?.providerId;
+  const source =
+    providerId && providerId !== "source-manual"
+      ? registry.instantiate("IdeaSource", providerId, {})
+      : undefined;
+  const result = await runDiscovery({
+    listIdeas,
+    insertIdea,
+    providerId,
+    source,
+    limit,
+  });
+  await logEvent(null, "ideas.discovered", {
+    providerId: result.providerId,
+    added: result.added,
+    skipped: result.skipped,
+    titles: result.titles,
+  });
+  return result;
+}
+
+export const onIdeasDiscover = inngest.createFunction(
+  {
+    id: "ideas-discover",
+    name: "Discover ideas",
+    triggers: [events.ideasDiscover, { cron: "0 6 * * *" }],
+    retries: 2,
+    concurrency: { limit: 1 },
+  },
+  async ({ event, step }) => {
+    const limit = event?.data && "limit" in event.data ? event.data.limit : undefined;
+    return step.run("discover", () => discoverIdeasStep(limit));
+  },
+);
+
+// ---------------------------------------------------------------------------
 
 const workByName = new Map(WORK_STAGES.map((s) => [s.name, s]));
 
 export const functions = [
   ...STAGES.map((name) => (isGate(name) ? gateFunction(name) : stageFunction(workByName.get(name)!))),
   onProjectRejected,
+  onIdeasDiscover,
 ];
 
 export { GATES, GATE_EVENTS };

@@ -24,7 +24,8 @@ Prereqs: Node 22+, pnpm 10, Docker, ffmpeg (Remotion downloads its own Chromium 
 2. `pnpm db:up` (Postgres 16 in Docker on :5432)
 3. `pnpm db:migrate && pnpm db:seed` (tables + default `providers_config` mapping every port to a fake)
 4. `pnpm dev` starts the dashboard (:3000), the pipeline serve endpoint (:3001) and the Inngest dev server (:8288)
-5. Open <http://localhost:3000/ideas>, add an idea, click **Select**, then approve each gate on the project page. The final render is a placeholder MP4 previewed in the dashboard.
+5. Open <http://localhost:3000/ideas>. Use **Source from web** (or add an idea by hand), click **Select**, optionally edit the script at the approve-script gate, then approve each gate. The final render is a placeholder MP4 previewed in the dashboard.
+6. First Remotion render downloads Chrome Headless Shell; run `pnpm browser:ensure` beforehand if needed.
 
 ## Tests
 

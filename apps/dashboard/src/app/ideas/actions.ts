@@ -1,10 +1,11 @@
 "use server";
 
 import { Domain, NewIdea } from "@vcp/core";
-import { createProject, getIdea, insertIdea, logEvent, setIdeaStatus } from "@vcp/db";
+import { createProject, getIdea, insertIdea, listIdeas, logEvent, setIdeaStatus } from "@vcp/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { discoverIdeasLocal } from "@/lib/discover";
 import { sendEvent } from "@/lib/inngest";
 
 const AddIdeaForm = z.object({
@@ -35,6 +36,20 @@ export async function addIdea(formData: FormData): Promise<void> {
   });
   await insertIdea(idea);
   revalidatePath("/ideas");
+}
+
+/** Pull candidate facts from IdeaSource (fake-source in M0). */
+export async function discoverIdeas(): Promise<void> {
+  const result = await discoverIdeasLocal({ listIdeas, insertIdea });
+  await logEvent(null, "ideas.discovered", {
+    providerId: result.providerId,
+    added: result.added,
+    skipped: result.skipped,
+    titles: result.titles,
+    via: "dashboard",
+  });
+  revalidatePath("/ideas");
+  redirect(`/ideas?sourced=${result.added}&skipped=${result.skipped}&via=${result.providerId}`);
 }
 
 export async function shortlistIdea(id: string): Promise<void> {
