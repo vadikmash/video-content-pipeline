@@ -9,7 +9,6 @@ export function hasIndependentSource(idea: Idea, sources: string[]): boolean {
   return sources.some((s) => s !== idea.sourceUrl);
 }
 
-
 export const research = defineStage({
   name: "research",
   async input(ctx) {

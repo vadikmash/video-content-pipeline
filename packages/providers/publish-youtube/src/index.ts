@@ -180,10 +180,32 @@ const UPLOAD_ATTEMPTS = 6;
 export async function putResumable(location: string, video: VideoBody, sleep = defaultSleep): Promise<YouTubeVideo> {
   let offset = 0;
   let lastError = "no attempt made";
+  // After a failed PUT the server may hold more bytes than we think: confirm the offset
+  // with a status probe before sending again, never resend from a guessed offset.
+  let needsProbe = false;
   for (let attempt = 0; attempt < UPLOAD_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(Math.min(8000, 500 * 2 ** (attempt - 1)));
+
+    if (needsProbe) {
+      const probe = await fetch(location, { method: "PUT", headers: { "content-range": `bytes */${video.size}` } }).catch(
+        (err: unknown) => {
+          lastError = `probe: ${err instanceof Error ? err.message : String(err)}`;
+          return undefined;
+        },
+      );
+      if (!probe) continue;
+      if (probe.status === 200 || probe.status === 201) return (await probe.json()) as YouTubeVideo;
+      if (probe.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
+      if (probe.status !== 308) {
+        lastError = `probe: ${probe.status} ${await snippet(probe)}`;
+        continue;
+      }
+      offset = nextOffset(probe.headers.get("range"));
+      needsProbe = false;
+    }
+
     const chunk = video.open(offset);
-    let res: Response | undefined;
+    let res: Response;
     try {
       res = await fetch(location, {
         method: "PUT",
@@ -194,25 +216,20 @@ export async function putResumable(location: string, video: VideoBody, sleep = d
     } catch (err) {
       // Dropped connection: ask the session how much arrived instead of starting a new insert.
       lastError = err instanceof Error ? err.message : String(err);
+      needsProbe = true;
+      continue;
     }
-    if (res) {
-      if (res.status === 200 || res.status === 201) return (await res.json()) as YouTubeVideo;
-      if (res.status === 308) {
-        offset = nextOffset(res.headers.get("range"));
-        continue;
-      }
-      lastError = `${res.status} ${await snippet(res)}`;
-      // 4xx other than 408/429 on the session itself will not get better by retrying.
-      if (res.status !== 404 && !isRetriableStatus(res.status)) {
-        throw new ProviderError(`publish-youtube: upload ${lastError}`, res.status);
-      }
+    if (res.status === 200 || res.status === 201) return (await res.json()) as YouTubeVideo;
+    if (res.status === 308) {
+      offset = nextOffset(res.headers.get("range"));
+      continue;
     }
-    const probe = await fetch(location, { method: "PUT", headers: { "content-range": `bytes */${video.size}` } }).catch(
-      () => undefined,
-    );
-    if (probe && (probe.status === 200 || probe.status === 201)) return (await probe.json()) as YouTubeVideo;
-    if (probe?.status === 308) offset = nextOffset(probe.headers.get("range"));
-    else if (probe && probe.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
+    const body = await snippet(res);
+    lastError = `${res.status} ${body}`;
+    if (res.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
+    const error = youtubeError("upload", res.status, body);
+    if (!error.retriable) throw error;
+    needsProbe = true;
   }
   throw new ProviderError(`publish-youtube: upload failed after ${UPLOAD_ATTEMPTS} attempts: ${lastError}`);
 }

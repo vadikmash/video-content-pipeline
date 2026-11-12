@@ -29,7 +29,7 @@ export const voice = defineStage({
     // Shorten long pauses. Fake TTS is silence, so there is nothing to tighten there.
     let audio = synth.audio;
     let contentType = synth.contentType;
-    let tightened = { removedSec: 0, pauses: 0 };
+    let tightened: { removedSec: number; pauses: number; error?: string } = { removedSec: 0, pauses: 0 };
     const maxPauseSec = pauseLimit(input.voice.options);
     if (maxPauseSec !== null && !isFakeProvider(ctx, "Speech")) {
       try {
@@ -39,8 +39,12 @@ export const voice = defineStage({
         words = out.words;
         tightened = { removedSec: out.removedSec, pauses: out.pauses };
       } catch (err) {
-        // Keep the paid narration rather than fail the stage and synthesize it again on retry.
-        console.warn(`voice: pause tightening skipped (${err instanceof Error ? err.message : String(err)})`);
+        // Keep the paid narration rather than fail the stage and synthesize it again on retry,
+        // but make the skipped step visible in the stage summary and the event log.
+        const message = err instanceof Error ? err.message : String(err);
+        tightened = { ...tightened, error: message.slice(0, 300) };
+        console.warn(`voice: pause tightening skipped (${message})`);
+        await store.logEvent(project.id, "voice.tighten.failed", { error: tightened.error });
       }
     }
 
@@ -70,6 +74,7 @@ export const voice = defineStage({
         aligner: alignerProvider ?? "from-speech",
         pausesShortened: tightened.pauses,
         pauseSecRemoved: tightened.removedSec,
+        ...(tightened.error ? { pauseTighteningError: tightened.error } : {}),
       },
     };
   },

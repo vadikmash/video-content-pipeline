@@ -246,7 +246,10 @@ describe("Publisher", () => {
         expect(changed.privacy).toBe(target);
         expect((await pub.status(changed)).privacy).toBe(target);
       } finally {
-        if (p.id === "publish-youtube") await pub.setPrivacy(up, "private");
+        if (p.id === "publish-youtube") {
+          // Restore without masking the assertion that failed above.
+          await pub.setPrivacy(up, "private").catch((err) => console.error(`could not restore ${up.remoteId} to private`, err));
+        }
       }
     });
   }

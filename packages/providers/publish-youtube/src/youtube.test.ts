@@ -36,6 +36,45 @@ describe("putResumable", () => {
     expect(calls.map((c) => c.range)).toEqual(["bytes 0-9/10", "bytes */10", "bytes 6-9/10"]);
   });
 
+  it("never resends from a guessed offset when the status probe also fails", async () => {
+    const ranges: (string | null)[] = [];
+    let probes = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const range = new Headers(init.headers).get("content-range");
+        ranges.push(range);
+        if (ranges.length === 1) throw new TypeError("fetch failed: ECONNRESET");
+        if (range === "bytes */10") {
+          probes++;
+          if (probes === 1) throw new TypeError("probe failed too");
+          return new Response(null, { status: 308, headers: { range: "bytes=0-7" } });
+        }
+        return json({ id: "vid123" });
+      }),
+    );
+    const out = await putResumable("https://upload.example/session", video(), noSleep);
+    expect(out.id).toBe("vid123");
+    expect(ranges).toEqual(["bytes 0-9/10", "bytes */10", "bytes */10", "bytes 8-9/10"]);
+  });
+
+  it("retries a rate-limit 403 on the upload PUT after confirming the offset", async () => {
+    const ranges: (string | null)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const range = new Headers(init.headers).get("content-range");
+        ranges.push(range);
+        if (ranges.length === 1) return json({ error: { errors: [{ reason: "rateLimitExceeded" }] } }, 403);
+        if (range === "bytes */10") return new Response(null, { status: 308 });
+        return json({ id: "vid123" });
+      }),
+    );
+    const out = await putResumable("https://upload.example/session", video(), noSleep);
+    expect(out.id).toBe("vid123");
+    expect(ranges).toEqual(["bytes 0-9/10", "bytes */10", "bytes 0-9/10"]);
+  });
+
   it("fails permanently on a 4xx from the session", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ error: "bad" }, 400)));
     const err = await putResumable("https://upload.example/session", video(), noSleep).catch((e) => e);
