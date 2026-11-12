@@ -1,6 +1,6 @@
 import { isPermanentError, type BlobStore, type ProviderContext, type Upload } from "@vcp/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { create, nextOffset, putResumable, statusForUpdate, youtubeError, type VideoBody } from "./index";
+import { create, nextOffset, putResumable, statusForUpdate, uploadOnce, youtubeError, type VideoBody } from "./index";
 
 const noSleep = async () => {};
 const video = (size = 10): VideoBody => ({ size, open: (start) => ({ body: new Uint8Array(size - start) as unknown as BodyInit }) });
@@ -212,5 +212,135 @@ describe("setPrivacy", () => {
     const out = await create(ctx).setPrivacy(upload, "public", when);
     expect(updates[0]).toMatchObject({ privacyStatus: "private", publishAt: when, embeddable: true });
     expect(out.status).toBe("scheduled");
+  });
+});
+
+describe("uploadOnce (idempotent per render)", () => {
+  function memoryBlob(): BlobStore & { data: Map<string, Uint8Array> } {
+    const data = new Map<string, Uint8Array>();
+    return {
+      id: "memory",
+      data,
+      async put(key, bytes, contentType) {
+        data.set(key, bytes);
+        return { key, contentType, size: bytes.byteLength };
+      },
+      async get(ref) {
+        const bytes = data.get(ref.key);
+        if (!bytes) throw Object.assign(new Error("missing"), { code: "ENOENT" });
+        return bytes;
+      },
+      async url(ref) {
+        return ref.key;
+      },
+    };
+  }
+  const session = "https://upload.example/session-1";
+
+  /** fetch stub for the session: `behave` decides per call. Records content ranges. */
+  function stubSession(behave: (range: string | null, n: number) => Response | Promise<Response>) {
+    const ranges: (string | null)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const range = new Headers(init.headers).get("content-range");
+        ranges.push(range);
+        return behave(range, ranges.length);
+      }),
+    );
+    return ranges;
+  }
+
+  it("saves the session before sending bytes and resumes it on the next attempt instead of starting another", async () => {
+    const blob = memoryBlob();
+    let starts = 0;
+    const remote = { start: async () => (starts++, session), exists: async () => true };
+
+    // Attempt 1: every PUT and probe fails, so the provider gives up (retriable).
+    stubSession(() => {
+      throw new TypeError("network down");
+    });
+    const first = await uploadOnce(blob, "render-1", video(), remote, noSleep).catch((e) => e);
+    expect(isPermanentError(first)).toBe(false);
+    expect(JSON.parse(Buffer.from(blob.data.get("uploads/publish-youtube/render-1.json")!).toString()).location).toBe(session);
+
+    // Attempt 2 (the stage retry): probes the saved session, resumes from byte 4.
+    const ranges = stubSession((range) =>
+      range === "bytes */10" ? new Response(null, { status: 308, headers: { range: "bytes=0-3" } }) : json({ id: "vid-1" }),
+    );
+    expect(await uploadOnce(blob, "render-1", video(), remote, noSleep)).toBe("vid-1");
+    expect(starts).toBe(1);
+    expect(ranges).toEqual(["bytes */10", "bytes 4-9/10"]);
+  });
+
+  it("returns the video when YouTube already has every byte but the result was lost", async () => {
+    const blob = memoryBlob();
+    await blob.put(
+      "uploads/publish-youtube/render-2.json",
+      new Uint8Array(Buffer.from(JSON.stringify({ renderId: "render-2", location: session, size: 10, createdAt: new Date().toISOString() }))),
+      "application/json",
+    );
+    let starts = 0;
+    const ranges = stubSession(() => json({ id: "vid-2" }));
+    const id = await uploadOnce(blob, "render-2", video(), { start: async () => (starts++, session), exists: async () => true }, noSleep);
+    expect(id).toBe("vid-2");
+    expect(starts).toBe(0);
+    expect(ranges).toEqual(["bytes */10"]);
+  });
+
+  it("returns the recorded video without any upload call once it is done", async () => {
+    const blob = memoryBlob();
+    const ranges = stubSession(() => json({ id: "vid-3" }));
+    const remote = { start: async () => session, exists: async () => true };
+    expect(await uploadOnce(blob, "render-3", video(), remote, noSleep)).toBe("vid-3");
+    ranges.length = 0;
+    let starts = 0;
+    expect(await uploadOnce(blob, "render-3", video(), { ...remote, start: async () => (starts++, session) }, noSleep)).toBe("vid-3");
+    expect(ranges).toEqual([]);
+    expect(starts).toBe(0);
+  });
+
+  it("starts a new session when the saved one has expired", async () => {
+    const blob = memoryBlob();
+    await blob.put(
+      "uploads/publish-youtube/render-4.json",
+      new Uint8Array(Buffer.from(JSON.stringify({ renderId: "render-4", location: "https://upload.example/old", size: 10, createdAt: new Date().toISOString() }))),
+      "application/json",
+    );
+    let starts = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => (url.endsWith("/old") ? json({}, 404) : json({ id: "vid-4" }))),
+    );
+    const id = await uploadOnce(blob, "render-4", video(), { start: async () => (starts++, session), exists: async () => true }, noSleep);
+    expect(id).toBe("vid-4");
+    expect(starts).toBe(1);
+  });
+
+  it("uploads again if the recorded video was deleted on YouTube", async () => {
+    const blob = memoryBlob();
+    await blob.put(
+      "uploads/publish-youtube/render-5.json",
+      new Uint8Array(Buffer.from(JSON.stringify({ renderId: "render-5", videoId: "gone", size: 10, createdAt: new Date().toISOString() }))),
+      "application/json",
+    );
+    stubSession(() => json({ id: "vid-5" }));
+    let starts = 0;
+    const id = await uploadOnce(blob, "render-5", video(), { start: async () => (starts++, session), exists: async () => false }, noSleep);
+    expect(id).toBe("vid-5");
+    expect(starts).toBe(1);
+  });
+
+  it("does not treat a failing blob store as 'no earlier attempt'", async () => {
+    const blob = memoryBlob();
+    blob.get = async () => {
+      throw new Error("blob store unavailable");
+    };
+    let starts = 0;
+    const err = await uploadOnce(blob, "render-6", video(), { start: async () => (starts++, session), exists: async () => true }, noSleep).catch(
+      (e) => e,
+    );
+    expect(err.message).toMatch(/blob store unavailable/);
+    expect(starts).toBe(0);
   });
 });

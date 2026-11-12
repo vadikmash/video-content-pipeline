@@ -113,10 +113,17 @@ export async function retryStage(projectId: string): Promise<void> {
   await logEvent(projectId, "stage.retry", { stage, previousError: row.error ?? null, previousAttempt: row.attempt ?? null });
 
   const trigger = retryTrigger(stage);
+  // One id per failure being retried: if this send times out after Inngest accepted it and the
+  // user clicks Retry again, the second event is dropped instead of starting a second run.
+  const id = `retry:${projectId}:${stage}:${row.finishedAt ?? row.attempt ?? "0"}`;
   try {
-    if (trigger.event === "idea.selected") await sendEvent("idea.selected", { projectId, ideaId: project.ideaId });
-    else await sendEvent("stage.completed", { projectId, stage: trigger.after });
+    if (trigger.event === "idea.selected") await sendEvent("idea.selected", { projectId, ideaId: project.ideaId }, { id });
+    else await sendEvent("stage.completed", { projectId, stage: trigger.after }, { id });
   } catch (err) {
+    // The send may have failed only on our side (a timeout after Inngest accepted the event).
+    // If a run has already picked the stage up, it owns the state now: leave it alone.
+    const now = await getStage(projectId, stage);
+    if (now?.status !== "pending") throw err;
     // Nothing will run: put the failed state back so the Retry button stays available.
     await upsertStage(projectId, stage, {
       status: "failed",

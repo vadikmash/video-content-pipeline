@@ -82,16 +82,18 @@ export function create(ctx: ProviderContext): Publisher {
       }
       const token = await accessToken();
       const video = await openVideo(ctx.blob, render);
-      const inserted = await resumableInsert(token, video, meta, categoryId);
-      if (!inserted.id) throw new Error("publish-youtube: insert response had no video id");
+      const remoteId = await uploadOnce(ctx.blob, render.id, video, {
+        start: () => startSession(token, video, meta, categoryId),
+        exists: (id) => videoExists(token, id),
+      });
       const now = nowIso();
       const upload: Upload = {
         id: newId(),
         projectId: render.projectId,
         renderId: render.id,
         provider: manifest.id,
-        remoteId: inserted.id,
-        remoteUrl: watchUrl(inserted.id),
+        remoteId,
+        remoteUrl: watchUrl(remoteId),
         privacy: "private",
         containsSyntheticMedia: meta.containsSyntheticMedia,
         status: "uploaded",
@@ -143,8 +145,96 @@ export function create(ctx: ProviderContext): Publisher {
   };
 }
 
-async function resumableInsert(token: string, video: VideoBody, meta: UploadMeta, categoryId: string): Promise<YouTubeVideo> {
-  if (video.size <= 0) throw new Error("publish-youtube: render file is empty");
+/**
+ * Upload a render at most once. A small record per render in the blob store holds the
+ * resumable session URL (saved before any bytes are sent) and, once done, the video id:
+ *
+ * - video id recorded and the video still exists: return it, nothing is sent again;
+ * - session recorded: probe it; if YouTube already has every byte it answers with the
+ *   video, otherwise the upload resumes from the confirmed offset;
+ * - session expired (404) or none recorded: start a new session. YouTube creates the
+ *   video only when the last byte arrives, so an abandoned session leaves no duplicate.
+ */
+export async function uploadOnce(
+  blob: BlobStore,
+  renderId: string,
+  video: VideoBody,
+  remote: { start: () => Promise<string>; exists: (videoId: string) => Promise<boolean> },
+  sleep = defaultSleep,
+): Promise<string> {
+  const record = await readSession(blob, renderId);
+  if (record?.videoId && (await remote.exists(record.videoId))) return record.videoId;
+
+  let done: YouTubeVideo | undefined;
+  if (record?.location && !record.videoId && record.size === video.size && sessionIsFresh(record)) {
+    done = await putResumable(record.location, video, sleep, { probeFirst: true }).catch((err: unknown) => {
+      if (err instanceof ProviderError && err.status === 404) return undefined; // expired: start over
+      throw err;
+    });
+  }
+  if (!done) {
+    const location = await remote.start();
+    await writeSession(blob, { renderId, location, size: video.size, createdAt: nowIso() });
+    done = await putResumable(location, video, sleep);
+  }
+  if (!done.id) throw new ProviderError("publish-youtube: upload response had no video id", undefined, false);
+  await writeSession(blob, { renderId, size: video.size, videoId: done.id, createdAt: nowIso() });
+  return done.id;
+}
+
+export interface SessionRecord {
+  renderId: string;
+  size: number;
+  location?: string;
+  videoId?: string;
+  createdAt: string;
+}
+
+/** YouTube keeps a resumable session for about a week; don't trust one older than that. */
+const SESSION_MAX_AGE_MS = 6 * 24 * 3600 * 1000;
+
+function sessionIsFresh(record: SessionRecord): boolean {
+  return Date.now() - new Date(record.createdAt).getTime() < SESSION_MAX_AGE_MS;
+}
+
+export function sessionKey(renderId: string): string {
+  return `uploads/publish-youtube/${renderId}.json`;
+}
+
+async function readSession(blob: BlobStore, renderId: string): Promise<SessionRecord | undefined> {
+  try {
+    const bytes = await blob.get({ key: sessionKey(renderId), contentType: "application/json" });
+    return JSON.parse(Buffer.from(bytes).toString("utf8")) as SessionRecord;
+  } catch (err) {
+    // Missing record means no earlier attempt. Any other read failure must not be
+    // mistaken for "none": that would start a second upload.
+    if (isNotFound(err)) return undefined;
+    throw err;
+  }
+}
+
+async function writeSession(blob: BlobStore, record: SessionRecord): Promise<void> {
+  await blob.put(sessionKey(record.renderId), new Uint8Array(Buffer.from(JSON.stringify(record))), "application/json");
+}
+
+function isNotFound(err: unknown): boolean {
+  const e = err as { code?: string; name?: string; $metadata?: { httpStatusCode?: number } } | undefined;
+  return e?.code === "ENOENT" || e?.name === "NoSuchKey" || e?.name === "NotFound" || e?.$metadata?.httpStatusCode === 404;
+}
+
+async function videoExists(token: string, id: string): Promise<boolean> {
+  try {
+    await getVideo(token, id);
+    return true;
+  } catch (err) {
+    if (err instanceof ProviderError && err.status === 404) return false;
+    throw err;
+  }
+}
+
+/** Open a resumable upload session; returns its URL. No video exists until every byte is sent. */
+async function startSession(token: string, video: VideoBody, meta: UploadMeta, categoryId: string): Promise<string> {
+  if (video.size <= 0) throw new ProviderError("publish-youtube: render file is empty", undefined, false);
   const metadata = {
     snippet: {
       title: meta.title.slice(0, 100),
@@ -170,19 +260,25 @@ async function resumableInsert(token: string, video: VideoBody, meta: UploadMeta
   });
   if (!start.ok) throw youtubeError("insert session", start.status, await snippet(start));
   const location = start.headers.get("location");
-  if (!location) throw new Error("publish-youtube: insert session missing Location");
-  return putResumable(location, video);
+  if (!location) throw new ProviderError("publish-youtube: insert session missing Location");
+  return location;
 }
 
 /** Attempts per upload: each failed PUT is followed by a status probe and a resume from the confirmed offset. */
 const UPLOAD_ATTEMPTS = 6;
 
-export async function putResumable(location: string, video: VideoBody, sleep = defaultSleep): Promise<YouTubeVideo> {
+export async function putResumable(
+  location: string,
+  video: VideoBody,
+  sleep = defaultSleep,
+  opts: { probeFirst?: boolean } = {},
+): Promise<YouTubeVideo> {
   let offset = 0;
   let lastError = "no attempt made";
   // After a failed PUT the server may hold more bytes than we think: confirm the offset
   // with a status probe before sending again, never resend from a guessed offset.
-  let needsProbe = false;
+  // Resuming a saved session starts with a probe for the same reason.
+  let needsProbe = opts.probeFirst === true;
   for (let attempt = 0; attempt < UPLOAD_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(Math.min(8000, 500 * 2 ** (attempt - 1)));
 

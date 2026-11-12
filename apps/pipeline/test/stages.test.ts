@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { WORK_STAGES, approveGate, research, runStage, write } from "../src/stages/index";
+import { WORK_STAGES, approveGate, research, runStage, upload, write } from "../src/stages/index";
 import { beatTimings } from "../src/stages/storyboard";
 import { hasIndependentSource } from "../src/stages/research";
 import { EMU_IDEA, makeWorld } from "./helpers";
@@ -95,6 +95,24 @@ describe("pipeline on fakes", () => {
     const stage = await store.getStage(project.id, "research");
     expect(stage?.status).toBe("failed");
     expect(stage?.error).toContain("kaboom");
+  });
+
+  it("upload is idempotent per render: a retry after the row was saved does not upload again", async () => {
+    world = makeWorld();
+    const { project, store, deps } = world;
+    for (const def of WORK_STAGES) {
+      if (def.name === "publish") break;
+      await runStage(def, project.id, deps);
+    }
+    const first = await store.latestUpload(project.id);
+    expect(store.uploads).toHaveLength(1);
+
+    // As if the step failed after insertUpload: the stage row says failed, so it runs again.
+    await store.upsertStage(project.id, "upload", { status: "failed", error: "lost after save" });
+    const again = await runStage(upload, project.id, deps);
+    expect(again.skipped).toBe(false);
+    expect(again.artifactId).toBe(first!.id);
+    expect(store.uploads).toHaveLength(1);
   });
 
   it("skips a fake WebResearch provider and cites the idea's evidence", async () => {
