@@ -331,6 +331,59 @@ describe("uploadOnce (idempotent per render)", () => {
     expect(starts).toBe(1);
   });
 
+  it("starts over when the saved session answers with a permanent error, instead of blocking the render", async () => {
+    const blob = memoryBlob();
+    await blob.put(
+      "uploads/publish-youtube/render-7.json",
+      new Uint8Array(Buffer.from(JSON.stringify({ renderId: "render-7", location: "https://upload.example/dead", size: 10, createdAt: "2020-01-01T00:00:00Z" }))),
+      "application/json",
+    );
+    let starts = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => (url.endsWith("/dead") ? json({ error: "bad" }, 400) : json({ id: "vid-7" }))),
+    );
+    const id = await uploadOnce(blob, "render-7", video(), { start: async () => (starts++, session), exists: async () => true }, noSleep);
+    expect(id).toBe("vid-7");
+    expect(starts).toBe(1);
+  });
+
+  it("probes a saved session however old it is, so a finished upload is never repeated", async () => {
+    const blob = memoryBlob();
+    await blob.put(
+      "uploads/publish-youtube/render-8.json",
+      new Uint8Array(Buffer.from(JSON.stringify({ renderId: "render-8", location: session, size: 10, createdAt: "2020-01-01T00:00:00Z" }))),
+      "application/json",
+    );
+    let starts = 0;
+    stubSession(() => json({ id: "vid-8" }));
+    const id = await uploadOnce(blob, "render-8", video(), { start: async () => (starts++, session), exists: async () => true }, noSleep);
+    expect(id).toBe("vid-8");
+    expect(starts).toBe(0);
+  });
+
+  it("does not resume a session saved for a file of a different size", async () => {
+    const blob = memoryBlob();
+    await blob.put(
+      "uploads/publish-youtube/render-9.json",
+      new Uint8Array(Buffer.from(JSON.stringify({ renderId: "render-9", location: "https://upload.example/other", size: 99, createdAt: new Date().toISOString() }))),
+      "application/json",
+    );
+    const urls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        urls.push(url);
+        return json({ id: "vid-9" });
+      }),
+    );
+    let starts = 0;
+    const id = await uploadOnce(blob, "render-9", video(), { start: async () => (starts++, session), exists: async () => true }, noSleep);
+    expect(id).toBe("vid-9");
+    expect(starts).toBe(1);
+    expect(urls.some((u) => u.endsWith("/other"))).toBe(false);
+  });
+
   it("does not treat a failing blob store as 'no earlier attempt'", async () => {
     const blob = memoryBlob();
     blob.get = async () => {

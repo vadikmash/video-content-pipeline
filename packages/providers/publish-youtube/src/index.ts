@@ -150,10 +150,11 @@ export function create(ctx: ProviderContext): Publisher {
  * resumable session URL (saved before any bytes are sent) and, once done, the video id:
  *
  * - video id recorded and the video still exists: return it, nothing is sent again;
- * - session recorded: probe it; if YouTube already has every byte it answers with the
- *   video, otherwise the upload resumes from the confirmed offset;
- * - session expired (404) or none recorded: start a new session. YouTube creates the
- *   video only when the last byte arrives, so an abandoned session leaves no duplicate.
+ * - session recorded: always probe it (probes cost no quota); if YouTube already has every
+ *   byte it answers with the video, otherwise the upload resumes from the confirmed offset;
+ * - session gone (404, 410 or any other permanent error) or none recorded: start a new
+ *   session. A finished session answers a probe with the video, never an error, and YouTube
+ *   creates the video only when the last byte arrives, so starting over leaves no duplicate.
  */
 export async function uploadOnce(
   blob: BlobStore,
@@ -166,9 +167,10 @@ export async function uploadOnce(
   if (record?.videoId && (await remote.exists(record.videoId))) return record.videoId;
 
   let done: YouTubeVideo | undefined;
-  if (record?.location && !record.videoId && record.size === video.size && sessionIsFresh(record)) {
+  if (record?.location && !record.videoId && record.size === video.size) {
     done = await putResumable(record.location, video, sleep, { probeFirst: true }).catch((err: unknown) => {
-      if (err instanceof ProviderError && err.status === 404) return undefined; // expired: start over
+      // The saved session is unusable: start over rather than block this render for good.
+      if (err instanceof ProviderError && (err.status === 404 || !err.retriable)) return undefined;
       throw err;
     });
   }
@@ -188,13 +190,6 @@ export interface SessionRecord {
   location?: string;
   videoId?: string;
   createdAt: string;
-}
-
-/** YouTube keeps a resumable session for about a week; don't trust one older than that. */
-const SESSION_MAX_AGE_MS = 6 * 24 * 3600 * 1000;
-
-function sessionIsFresh(record: SessionRecord): boolean {
-  return Date.now() - new Date(record.createdAt).getTime() < SESSION_MAX_AGE_MS;
 }
 
 export function sessionKey(renderId: string): string {
@@ -222,10 +217,11 @@ function isNotFound(err: unknown): boolean {
   return e?.code === "ENOENT" || e?.name === "NoSuchKey" || e?.name === "NotFound" || e?.$metadata?.httpStatusCode === 404;
 }
 
+/** The video is on YouTube and usable: deleted, failed or rejected videos count as gone. */
 async function videoExists(token: string, id: string): Promise<boolean> {
   try {
-    await getVideo(token, id);
-    return true;
+    const video = await getVideo(token, id);
+    return !["failed", "rejected", "deleted"].includes(String(video.status?.uploadStatus ?? ""));
   } catch (err) {
     if (err instanceof ProviderError && err.status === 404) return false;
     throw err;
@@ -291,7 +287,7 @@ export async function putResumable(
       );
       if (!probe) continue;
       if (probe.status === 200 || probe.status === 201) return (await probe.json()) as YouTubeVideo;
-      if (probe.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
+      if (probe.status === 404 || probe.status === 410) throw new ProviderError("publish-youtube: upload session expired", 404, true);
       if (probe.status !== 308) {
         const body = await snippet(probe);
         lastError = `probe: ${probe.status} ${body}`;
@@ -325,7 +321,7 @@ export async function putResumable(
     }
     const body = await snippet(res);
     lastError = `${res.status} ${body}`;
-    if (res.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
+    if (res.status === 404 || res.status === 410) throw new ProviderError("publish-youtube: upload session expired", 404, true);
     const error = youtubeError("upload", res.status, body);
     if (!error.retriable) throw error;
     needsProbe = true;

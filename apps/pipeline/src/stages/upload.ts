@@ -49,7 +49,15 @@ export const upload = defineStage({
     // (The provider covers the earlier window, where the remote upload finished but this row was not saved.)
     const existing = await store.latestUpload(project.id);
     if (existing?.renderId === render.id && existing.provider === ports.Publisher.id) {
-      return { artifactId: existing.id, summary: { remoteId: existing.remoteId, privacy: existing.privacy, reused: true } };
+      return {
+        artifactId: existing.id,
+        summary: {
+          remoteId: existing.remoteId,
+          privacy: existing.privacy,
+          containsSyntheticMedia: existing.containsSyntheticMedia,
+          reused: true,
+        },
+      };
     }
 
     await limits.acquire(ports.Publisher.id);
