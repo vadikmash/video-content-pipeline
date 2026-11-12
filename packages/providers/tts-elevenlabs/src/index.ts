@@ -8,10 +8,13 @@ export const manifest = defineManifest({
   limits: { concurrency: 2 },
   attributionRequired: false,
   costModel: { unit: "character", approxUsd: 0 },
-  description: "ElevenLabs text-to-speech with character timestamps, collapsed to one word per input token. Voice id is Speech options.voiceId, else ELEVENLABS_VOICE_ID.",
+  description:
+    "ElevenLabs text-to-speech with character timestamps, collapsed to one word per input token. Voice id is Speech options.voiceId, else ELEVENLABS_VOICE_ID. Speech options.speed (0.7-1.2, default 1.1) keeps the voice's other saved settings.",
 });
 
 const DEFAULT_MODEL = "eleven_multilingual_v2";
+/** Slightly faster than the voice's natural pace; ElevenLabs accepts 0.7-1.2. */
+export const DEFAULT_SPEED = 1.1;
 
 export { wordsFromAlignment, wordsFromCharacters } from "./words";
 
@@ -24,6 +27,13 @@ interface Alignment {
 export function create(ctx: ProviderContext): Speech {
   const apiKey = ctx.env.ELEVENLABS_API_KEY;
   const modelId = stringOpt(ctx.options.modelId) ?? ctx.env.ELEVENLABS_MODEL ?? DEFAULT_MODEL;
+  const speed = clampSpeed(numberOpt(ctx.options.speed) ?? DEFAULT_SPEED);
+  // voice_settings replaces the voice's saved settings wholesale, so fetch them once and override speed only.
+  const savedSettings = new Map<string, Promise<Record<string, unknown>>>();
+  const settingsFor = (voiceId: string) => {
+    if (!savedSettings.has(voiceId)) savedSettings.set(voiceId, fetchVoiceSettings(apiKey!, voiceId));
+    return savedSettings.get(voiceId)!;
+  };
   return {
     id: manifest.id,
     async synthesize(text, voice) {
@@ -34,7 +44,7 @@ export function create(ctx: ProviderContext): Speech {
       const res = await fetch(url, {
         method: "POST",
         headers: { "xi-api-key": apiKey, "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ text, model_id: modelId }),
+        body: JSON.stringify({ text, model_id: modelId, voice_settings: { ...(await settingsFor(voiceId)), speed } }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         detail?: { message?: string } | string;
@@ -70,6 +80,29 @@ function detailMessage(detail: { message?: string } | string | undefined): strin
   if (!detail) return "";
   if (typeof detail === "string") return detail;
   return detail.message ?? "";
+}
+
+async function fetchVoiceSettings(apiKey: string, voiceId: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`https://api.elevenlabs.io/v1/voices/${encodeURIComponent(voiceId)}/settings`, {
+    headers: { "xi-api-key": apiKey },
+  });
+  if (res.status === 401 || res.status === 403) {
+    // The key lacks the voices_read permission. Send speed alone rather than fail the narration.
+    console.warn(`tts-elevenlabs: cannot read saved settings for voice ${voiceId} (${res.status}); sending speed only`);
+    return {};
+  }
+  if (!res.ok) throw new ProviderError(`tts-elevenlabs: voice settings ${res.status} ${res.statusText}`, res.status);
+  const body = (await res.json()) as Record<string, unknown>;
+  const { speed: _ignored, ...rest } = body;
+  return rest;
+}
+
+export function clampSpeed(speed: number): number {
+  return Math.min(1.2, Math.max(0.7, speed));
+}
+
+function numberOpt(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
 function stringOpt(value: unknown): string | undefined {

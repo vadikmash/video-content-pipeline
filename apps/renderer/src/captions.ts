@@ -1,6 +1,7 @@
 /**
- * Caption pages: short phrases that stay put while they are spoken, instead of
- * a window that re-centres on every word. Pure so it can be unit-tested.
+ * Big centred captions: one word at a time, as it is said. A word spoken too
+ * quickly to register on its own rides along with the next one.
+ * Pure so it can be unit-tested.
  */
 
 export interface CaptionWord {
@@ -9,93 +10,77 @@ export interface CaptionWord {
   end: number;
 }
 
-export interface CaptionPage {
+export interface CaptionChunk {
   words: CaptionWord[];
-  /** Seconds the page appears. */
+  text: string;
+  /** Seconds the chunk appears (its first word starts). */
   start: number;
-  /** Seconds the page disappears (held across short gaps so pages don't flicker). */
+  /** Seconds it disappears: when the next chunk appears, or shortly after its last word. */
   end: number;
 }
 
-export interface PageOptions {
-  /** Characters per page, spaces included. Two short lines at caption size. */
+export interface ChunkOptions {
+  /** A chunk never grows past this many characters (one line at caption size). */
   maxChars: number;
-  maxWords: number;
-  /** A silence at least this long starts a new page. */
-  pauseSec: number;
-  /** How long a page lingers after its last word when nothing follows soon. */
+  /** Words this short join the next word. 0 keeps every word on its own, like the reference Shorts. */
+  shortWordChars: number;
+  /** A chunk shown for less than this joins the next one (avoids one-frame flashes). */
+  minSec: number;
+  /** How long the last chunk before a pause stays up after its word ends. */
   holdSec: number;
 }
 
-export const DEFAULT_PAGE_OPTIONS: PageOptions = { maxChars: 40, maxWords: 8, pauseSec: 0.35, holdSec: 0.4 };
-
-/** Pages shorter than this get merged into a neighbour when they fit, so the screen changes less often. */
-const MIN_PAGE_CHARS = 16;
+export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 14, shortWordChars: 0, minSec: 0.15, holdSec: 0.3 };
 
 const ENDS_SENTENCE = /[.!?…]["')\]]?$/;
-const ENDS_SOFT = /[,:;—–-]["')\]]?$/;
 
-export function captionPages(words: readonly CaptionWord[], opts: PageOptions = DEFAULT_PAGE_OPTIONS): CaptionPage[] {
+export function captionChunks(words: readonly CaptionWord[], opts: ChunkOptions = DEFAULT_CHUNK_OPTIONS): CaptionChunk[] {
   const groups: CaptionWord[][] = [];
   let current: CaptionWord[] = [];
-  let chars = 0;
-
-  const flush = () => {
-    if (current.length) groups.push(current);
-    current = [];
-    chars = 0;
-  };
 
   words.forEach((word, i) => {
-    const prev = words[i - 1];
-    const addChars = (current.length ? 1 : 0) + word.text.length;
-    const paused = prev !== undefined && word.start - prev.end >= opts.pauseSec;
-    if (current.length && (paused || chars + addChars > opts.maxChars || current.length >= opts.maxWords)) flush();
     current.push(word);
-    chars += addChars;
-    // Sentence ends always break; commas and colons only once the page is fairly full.
-    if (ENDS_SENTENCE.test(word.text) || (ENDS_SOFT.test(word.text) && chars >= opts.maxChars * 0.6)) flush();
-  });
-  flush();
-
-  // Merge short fragments into a neighbour in the same sentence when the result still fits.
-  const fits = (a: CaptionWord[], b: CaptionWord[]) => text(a).length + 1 + text(b).length <= opts.maxChars + 6;
-  const joined = (a: CaptionWord[], b: CaptionWord[]) =>
-    !ENDS_SENTENCE.test(a[a.length - 1]!.text) && b[0]!.start - a[a.length - 1]!.end < opts.pauseSec;
-  for (let i = 0; i < groups.length; i++) {
-    const g = groups[i]!;
-    if (text(g).length >= MIN_PAGE_CHARS) continue;
-    const prev = groups[i - 1];
-    const next = groups[i + 1];
-    if (prev && joined(prev, g) && fits(prev, g)) {
-      prev.push(...g);
-      groups.splice(i--, 1);
-    } else if (next && joined(g, next) && fits(g, next)) {
-      g.push(...next);
-      groups.splice(i + 1, 1);
-      i--;
-    } else if (prev && joined(prev, g)) {
-      // Too long to merge: rebalance by moving words from the end of the previous page.
-      while (prev.length > 1 && text(g).length < MIN_PAGE_CHARS && text(prev.slice(0, -1)).length >= MIN_PAGE_CHARS) {
-        g.unshift(prev.pop()!);
-      }
+    const next = words[i + 1];
+    const text = joinText(current);
+    const canGrow =
+      next !== undefined &&
+      !ENDS_SENTENCE.test(word.text) &&
+      text.length + 1 + next.text.length <= opts.maxChars &&
+      ((opts.shortWordChars > 0 && bare(word.text).length <= opts.shortWordChars) || next.start - current[0]!.start < opts.minSec);
+    if (!canGrow) {
+      groups.push(current);
+      current = [];
     }
-  }
+  });
+  if (current.length) groups.push(current);
 
   return groups.map((g, i) => {
     const start = g[0]!.start;
     const lastEnd = g[g.length - 1]!.end;
     const nextStart = groups[i + 1]?.[0]?.start;
-    // Hold until the next page if it follows closely, else linger briefly.
-    const end = nextStart !== undefined && nextStart - lastEnd < opts.holdSec * 2 ? nextStart : lastEnd + opts.holdSec;
-    return { words: g, start, end: Math.max(end, start) };
+    // Stay up until the next chunk when it follows closely; otherwise linger briefly.
+    const end = nextStart !== undefined && nextStart - lastEnd <= opts.holdSec ? nextStart : lastEnd + opts.holdSec;
+    return { words: g, text: joinText(g), start, end: Math.max(end, start) };
   });
 }
 
-export function pageAt(pages: readonly CaptionPage[], t: number): CaptionPage | undefined {
-  return pages.find((p) => t >= p.start && t < p.end);
+export function chunkAt(chunks: readonly CaptionChunk[], t: number): CaptionChunk | undefined {
+  return chunks.find((c) => t >= c.start && t < c.end);
 }
 
-function text(words: CaptionWord[]): string {
+/**
+ * Font size that keeps a chunk on one line inside `width` pixels. Impact-style
+ * faces are narrow, about 0.5em per character on average.
+ */
+export function captionFontSize(text: string, width: number, max: number, min: number): number {
+  const fit = width / (Math.max(text.length, 1) * 0.5);
+  return Math.round(Math.max(min, Math.min(max, fit)));
+}
+
+function joinText(words: readonly CaptionWord[]): string {
   return words.map((w) => w.text).join(" ");
+}
+
+function bare(text: string): string {
+  return text.replace(/[^\p{L}\p{N}]/gu, "");
 }

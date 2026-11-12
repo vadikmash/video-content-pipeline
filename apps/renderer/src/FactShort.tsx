@@ -9,7 +9,8 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { captionPages, pageAt } from "./captions";
+import { captionChunks, captionFontSize, chunkAt } from "./captions";
+import { CAPTION_FONT } from "./fonts";
 import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
 
@@ -96,24 +97,23 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  // kinetic typography (default)
-  const opacity = interpolate(frame, [0, 8], [0, 1], { extrapolateRight: "clamp" });
-  const y = interpolate(frame, [0, 8], [40, 0], { extrapolateRight: "clamp" });
+  // Template v1 has no footage for "type" beats: the captions carry the words, the backdrop stays quiet.
+  return <Backdrop />;
+};
+
+/** Slow drifting gradient so a type-only beat is not a flat colour. */
+const Backdrop: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = frame / fps;
+  const x = 50 + 18 * Math.sin(t / 7);
+  const y = 42 + 12 * Math.cos(t / 9);
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: 96 }}>
-      <div
-        style={{
-          fontSize: 72,
-          fontWeight: 800,
-          lineHeight: 1.15,
-          textAlign: "center",
-          opacity,
-          transform: `translateY(${y}px)`,
-        }}
-      >
-        {scene.text}
-      </div>
-    </AbsoluteFill>
+    <AbsoluteFill
+      style={{
+        background: `radial-gradient(circle at ${x}% ${y}%, #1e3a5f 0%, ${BG} 62%)`,
+      }}
+    />
   );
 };
 
@@ -145,53 +145,32 @@ const TitleCard: React.FC<{ title: string }> = ({ title }) => {
 };
 
 /**
- * Phrase captions: a short phrase stays in place while it is spoken and
- * cross-fades to the next one. Words not yet spoken sit dimmer and ease up as
- * they are said; nothing moves or changes colour word by word.
+ * Big centred captions, one word at a time as it is said: white Impact with a
+ * black outline. No highlight, no motion; each word replaces the last.
  */
 const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const pages = React.useMemo(() => captionPages(words), [words]);
-  const t = frame / fps;
-  const page = pageAt(pages, t);
-  if (!page) return null;
-
-  const FADE = 0.18;
-  const appear = interpolate(t, [page.start - 0.02, page.start + FADE], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const vanish = interpolate(t, [page.end - FADE, page.end], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const rise = interpolate(appear, [0, 1], [10, 0]);
-
+  const { fps, width } = useVideoConfig();
+  const chunks = React.useMemo(() => captionChunks(words), [words]);
+  const chunk = chunkAt(chunks, frame / fps);
+  if (!chunk) return null;
+  const fontSize = captionFontSize(chunk.text, width - 140, 170, 90);
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 300 }}>
+    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px" }}>
       <div
         style={{
-          maxWidth: 860,
-          padding: "18px 30px",
-          borderRadius: 22,
-          background: "rgba(2, 6, 23, 0.55)",
-          fontSize: 46,
-          fontWeight: 600,
-          lineHeight: 1.3,
-          letterSpacing: "-0.005em",
+          fontFamily: CAPTION_FONT,
+          fontSize,
+          lineHeight: 1.1,
+          color: "#ffffff",
           textAlign: "center",
-          color: TEXT,
-          opacity: appear * vanish,
-          transform: `translateY(${rise}px)`,
+          whiteSpace: "nowrap",
+          WebkitTextStroke: `${Math.round(fontSize * 0.11)}px #000000`,
+          paintOrder: "stroke fill",
+          textShadow: "0 8px 24px rgba(0,0,0,0.55)",
         }}
       >
-        {page.words.map((w, i) => {
-          const spoken = interpolate(t, [w.start - 0.05, w.start + 0.15], [0.5, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-          });
-          return (
-            <span key={`${w.start}-${i}`} style={{ opacity: spoken }}>
-              {i ? " " : ""}
-              {w.text}
-            </span>
-          );
-        })}
+        {chunk.text}
       </div>
     </AbsoluteFill>
   );

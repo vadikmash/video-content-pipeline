@@ -1,68 +1,77 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PAGE_OPTIONS, captionPages, pageAt, type CaptionWord } from "./captions";
+import { DEFAULT_CHUNK_OPTIONS, captionChunks, captionFontSize, chunkAt, type CaptionWord } from "./captions";
 
-/** Words back to back at 0.3s each, like ElevenLabs timings. */
+/** Words back to back, like ElevenLabs timings. */
 function speak(sentence: string, start = 0, per = 0.3): CaptionWord[] {
   return sentence.split(" ").map((text, i) => ({ text, start: start + i * per, end: start + (i + 1) * per }));
 }
-const texts = (words: CaptionWord[]) => words.map((w) => w.text).join(" ");
 
-describe("captionPages", () => {
-  it("breaks at sentence ends", () => {
-    const pages = captionPages(speak("The emus won. The army left."));
-    expect(pages.map((p) => texts(p.words))).toEqual(["The emus won.", "The army left."]);
+describe("captionChunks", () => {
+  it("shows one word at a time", () => {
+    const chunks = captionChunks(speak("Honey stays edible forever"));
+    expect(chunks.map((c) => c.text)).toEqual(["Honey", "stays", "edible", "forever"]);
   });
 
-  it("keeps every page within the character and word limits", () => {
-    const words = speak(
-      "Octopuses have not one but three hearts and one main heart called the systemic heart pumps blood around the whole body while two gill hearts help",
-    );
-    const pages = captionPages(words);
-    for (const p of pages) {
-      expect(texts(p.words).length).toBeLessThanOrEqual(DEFAULT_PAGE_OPTIONS.maxChars + 6);
-      expect(p.words.length).toBeLessThanOrEqual(DEFAULT_PAGE_OPTIONS.maxWords + 1);
-    }
-    expect(pages.flatMap((p) => p.words)).toEqual(words);
+  it("keeps short words on their own by default, like the reference", () => {
+    const chunks = captionChunks(speak("It is a food that lasts"));
+    expect(chunks.map((c) => c.text)).toEqual(["It", "is", "a", "food", "that", "lasts"]);
   });
 
-  it("starts a new page after a pause", () => {
-    const words = [...speak("Did you know", 0), ...speak("octopuses have three hearts", 2)];
-    expect(captionPages(words).map((p) => texts(p.words))).toEqual(["Did you know", "octopuses have three hearts"]);
+  it("can let short words ride with the next real word", () => {
+    const chunks = captionChunks(speak("It is a food that lasts"), { ...DEFAULT_CHUNK_OPTIONS, shortWordChars: 3 });
+    expect(chunks.map((c) => c.text)).toEqual(["It is a food", "that", "lasts"]);
   });
 
-  it("holds a page until the next one so captions don't flicker between phrases", () => {
-    const pages = captionPages(speak("First phrase here. Second phrase follows."));
-    expect(pages[0]!.end).toBe(pages[1]!.start);
+  it("never runs past one line", () => {
+    const words = "a an the of to in on at by it is so we".split(" ").map((text, i) => ({ text, start: i * 0.05, end: (i + 1) * 0.05 }));
+    const chunks = captionChunks(words);
+    for (const c of chunks) expect(c.text.length).toBeLessThanOrEqual(DEFAULT_CHUNK_OPTIONS.maxChars);
   });
 
-  it("lingers briefly after the last page", () => {
-    const words = speak("Only one.");
-    const [page] = captionPages(words);
-    expect(page!.end).toBeCloseTo(words[1]!.end + DEFAULT_PAGE_OPTIONS.holdSec);
+  it("does not join across a sentence end", () => {
+    const words = [
+      { text: "works.", start: 0, end: 0.05 },
+      { text: "So", start: 0.05, end: 0.3 },
+    ];
+    // "works." is too quick to show alone, but a sentence end still never joins the next word.
+    expect(captionChunks(words).map((c) => c.text)).toEqual(["works.", "So"]);
   });
 
-  it("does not leave a lone word on its own page", () => {
-    const pages = captionPages(speak("one two three four five six seven eight"), { ...DEFAULT_PAGE_OPTIONS, maxWords: 7 });
-    expect(pages.every((p) => p.words.length > 1)).toBe(true);
+  it("joins a word said too quickly to read on its own", () => {
+    const words = [
+      { text: "really", start: 0, end: 0.08 },
+      { text: "quick", start: 0.08, end: 0.4 },
+      { text: "words", start: 0.4, end: 0.8 },
+    ];
+    expect(captionChunks(words).map((c) => c.text)).toEqual(["really quick", "words"]);
   });
 
-  it("changes pages far less often than words", () => {
-    const words = speak(
-      "Here is the wild part. When an octopus swims, its main heart stops, so the animal gets tired very quickly.",
-    );
-    const pages = captionPages(words);
-    expect(pages.length).toBeLessThanOrEqual(Math.ceil(words.length / 3));
-    // Every moment of speech is covered by exactly one page.
-    for (const w of words) expect(pageAt(pages, w.start + 0.01)?.words).toContain(w);
+  it("holds each chunk until the next appears, and lingers briefly before a pause", () => {
+    const words = [...speak("alpha beta", 0), ...speak("gamma", 2)];
+    const chunks = captionChunks(words);
+    expect(chunks.map((c) => c.text)).toEqual(["alpha", "beta", "gamma"]);
+    expect(chunks[0]!.end).toBe(chunks[1]!.start);
+    expect(chunks[1]!.end).toBeCloseTo(0.6 + DEFAULT_CHUNK_OPTIONS.holdSec);
+    expect(chunkAt(chunks, 1.5)).toBeUndefined();
+    expect(chunkAt(chunks, 2.1)?.text).toBe("gamma");
   });
 
-  it("rebalances a short tail that is too long to merge into the previous page", () => {
-    const pages = captionPages(speak("thanks to a copper-based molecule called hemocyanin instead of our iron-based hemoglobin."));
-    expect(pages.every((p) => texts(p.words).length >= 16)).toBe(true);
-    expect(pages.at(-1)!.words.length).toBeGreaterThan(1);
+  it("covers every spoken word exactly once, in order", () => {
+    const words = speak("Here is the wild part: when an octopus swims, its main heart stops.");
+    const chunks = captionChunks(words);
+    expect(chunks.flatMap((c) => c.words)).toEqual(words);
   });
 
   it("handles no words", () => {
-    expect(captionPages([])).toEqual([]);
+    expect(captionChunks([])).toEqual([]);
+  });
+});
+
+describe("captionFontSize", () => {
+  it("uses the max size for short words and shrinks long ones to fit", () => {
+    expect(captionFontSize("heart", 920, 150, 80)).toBe(150);
+    const long = captionFontSize("microorganisms", 920, 150, 80);
+    expect(long).toBeLessThan(150);
+    expect(long * 0.5 * "microorganisms".length).toBeLessThanOrEqual(920);
   });
 });
