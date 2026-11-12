@@ -75,6 +75,34 @@ describe("putResumable", () => {
     expect(ranges).toEqual(["bytes 0-9/10", "bytes */10", "bytes 0-9/10"]);
   });
 
+  it("fails permanently when the status probe gets a permanent error", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const range = new Headers(init.headers).get("content-range");
+        if (range === "bytes */10") return json({ error: "bad range" }, 400);
+        throw new TypeError("fetch failed");
+      }),
+    );
+    const err = await putResumable("https://upload.example/session", video(), noSleep).catch((e) => e);
+    expect(err.message).toMatch(/upload probe 400/);
+    expect(isPermanentError(err)).toBe(true);
+  });
+
+  it("treats an expired session as retriable so the stage starts a fresh one", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        const range = new Headers(init.headers).get("content-range");
+        if (range === "bytes */10") return json({}, 404);
+        return json({ error: "server" }, 503);
+      }),
+    );
+    const err = await putResumable("https://upload.example/session", video(), noSleep).catch((e) => e);
+    expect(err.message).toMatch(/session expired/);
+    expect(isPermanentError(err)).toBe(false);
+  });
+
   it("fails permanently on a 4xx from the session", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json({ error: "bad" }, 400)));
     const err = await putResumable("https://upload.example/session", video(), noSleep).catch((e) => e);

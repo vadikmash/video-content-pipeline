@@ -124,7 +124,9 @@ export async function retryStage(projectId: string): Promise<void> {
       finishedAt: row.finishedAt ? new Date(row.finishedAt) : new Date(),
     });
     await updateProject(projectId, { status: "failed", currentStage: stage });
-    await logEvent(projectId, "stage.retry.failed", { stage, error: err instanceof Error ? err.message : String(err) });
+    await logEvent(projectId, "stage.retry.failed", { stage, error: err instanceof Error ? err.message : String(err) }).catch(
+      () => {},
+    );
     throw err;
   }
   revalidatePath(`/projects/${projectId}`);

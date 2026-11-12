@@ -197,7 +197,10 @@ export async function putResumable(location: string, video: VideoBody, sleep = d
       if (probe.status === 200 || probe.status === 201) return (await probe.json()) as YouTubeVideo;
       if (probe.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
       if (probe.status !== 308) {
-        lastError = `probe: ${probe.status} ${await snippet(probe)}`;
+        const body = await snippet(probe);
+        lastError = `probe: ${probe.status} ${body}`;
+        const error = youtubeError("upload probe", probe.status, body);
+        if (!error.retriable) throw error;
         continue;
       }
       offset = nextOffset(probe.headers.get("range"));

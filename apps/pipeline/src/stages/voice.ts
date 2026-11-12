@@ -44,7 +44,10 @@ export const voice = defineStage({
         const message = err instanceof Error ? err.message : String(err);
         tightened = { ...tightened, error: message.slice(0, 300) };
         console.warn(`voice: pause tightening skipped (${message})`);
-        await store.logEvent(project.id, "voice.tighten.failed", { error: tightened.error });
+        // Best effort: a failed log write must not fail the stage and re-bill the narration.
+        await store
+          .logEvent(project.id, "voice.tighten.failed", { error: tightened.error })
+          .catch((e: unknown) => console.warn("voice: could not log tightening failure", e));
       }
     }
 

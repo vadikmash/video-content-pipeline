@@ -241,14 +241,21 @@ describe("Publisher", () => {
       // A real channel never gets a public test video: exercise the privacy change with
       // "unlisted" on YouTube, and always put it back to private afterwards.
       const target = p.id === "publish-youtube" ? "unlisted" : "public";
+      let passed = false;
       try {
         const changed = await pub.setPrivacy(up, target);
         expect(changed.privacy).toBe(target);
         expect((await pub.status(changed)).privacy).toBe(target);
+        passed = true;
       } finally {
         if (p.id === "publish-youtube") {
-          // Restore without masking the assertion that failed above.
-          await pub.setPrivacy(up, "private").catch((err) => console.error(`could not restore ${up.remoteId} to private`, err));
+          try {
+            await pub.setPrivacy(up, "private");
+          } catch (err) {
+            console.error(`could not restore ${up.remoteId} to private`, err);
+            // Surface a failed restore, but never mask the assertion that failed above.
+            if (passed) throw err;
+          }
         }
       }
     });
