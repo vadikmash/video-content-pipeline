@@ -76,7 +76,8 @@ async function complete(
     throw new ProviderError(`llm-anthropic: refused (${category})`, undefined, false);
   }
   if (response.stop_reason === "max_tokens") {
-    throw new ProviderError("llm-anthropic: output hit max_tokens", undefined, true);
+    // The same prompt with the same limit would hit it again.
+    throw new ProviderError("llm-anthropic: output hit max_tokens", undefined, false);
   }
   const text = response.content.find((block) => block.type === "text");
   if (!text || text.type !== "text") return undefined;

@@ -1,6 +1,6 @@
 import { BriefDraft, newId, nowIso, type Brief, type Idea, type SearchResult } from "@vcp/core";
 import { limits } from "@vcp/limits";
-import { StageError, defineStage, type StageCtx } from "./context";
+import { StageError, defineStage, isFakeProvider } from "./context";
 
 /** A source counts when it is not the idea's origin post. User-supplied evidence counts. Opinion ideas skip the rule. */
 export function hasIndependentSource(idea: Idea, sources: string[]): boolean {
@@ -9,10 +9,6 @@ export function hasIndependentSource(idea: Idea, sources: string[]): boolean {
   return sources.some((s) => s !== idea.sourceUrl);
 }
 
-function webResearchIsFake(ctx: StageCtx): boolean {
-  const id = ctx.ports.WebResearch.id;
-  return ctx.registry.manifests().some((m) => m.id === id && m.fake === true);
-}
 
 export const research = defineStage({
   name: "research",
@@ -22,7 +18,7 @@ export const research = defineStage({
   },
   async run(ctx) {
     const { idea, ports, store, project } = ctx;
-    const fake = webResearchIsFake(ctx);
+    const fake = isFakeProvider(ctx, "WebResearch");
 
     let results: SearchResult[] = [];
     const pages: { url: string; text: string }[] = [];

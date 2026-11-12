@@ -72,6 +72,12 @@ export async function loadStageCtx(projectId: string, store: Store, registry: Pr
   return { project, idea, config, ports, store, registry };
 }
 
+/** True when the provider bound to `port` is a fake (dry runs, tests, or keys not configured). */
+export function isFakeProvider(ctx: StageCtx, port: PortName): boolean {
+  const id = (ctx.ports[port] as { id: string } | undefined)?.id;
+  return ctx.registry.manifests().some((m) => m.id === id && m.fake === true);
+}
+
 export function providerIdsFor(config: PipelineConfig, ports: readonly PortName[]): string[] {
   return ports.map((p) => config.ports[p]?.providerId ?? "unbound");
 }

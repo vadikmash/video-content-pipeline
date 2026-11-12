@@ -37,7 +37,7 @@ export function create(ctx: ProviderContext): Speech {
   return {
     id: manifest.id,
     async synthesize(text, voice) {
-      if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
+      if (!apiKey) throw new ProviderError("tts-elevenlabs: ELEVENLABS_API_KEY is not set", undefined, false);
       const voiceId = resolveVoiceId(voice, ctx.env);
       const url = new URL(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps`);
       url.searchParams.set("output_format", "mp3_44100_128");

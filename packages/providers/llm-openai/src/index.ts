@@ -27,7 +27,7 @@ export function create(ctx: ProviderContext): TextModel {
   return {
     id: manifest.id,
     async generate(schema, prompt) {
-      if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+      if (!apiKey) throw new ProviderError("llm-openai: OPENAI_API_KEY is not set", undefined, false);
       const jsonSchema = strictJsonSchema(schema);
       const { system, user } = promptText(prompt);
       return parseWithOneRetry(schema, user, (message) => complete(apiKey, model, jsonSchema, prompt, system, message));
@@ -49,6 +49,7 @@ async function complete(
       authorization: `Bearer ${apiKey}`,
       "content-type": "application/json",
     },
+    signal: AbortSignal.timeout(180_000),
     body: JSON.stringify({
       model,
       messages: [

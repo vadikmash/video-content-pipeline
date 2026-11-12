@@ -22,7 +22,7 @@ export function create(ctx: ProviderContext): Aligner {
   return {
     id: manifest.id,
     async align(audio, text) {
-      if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
+      if (!apiKey) throw new ProviderError("align-elevenlabs: ELEVENLABS_API_KEY is not set", undefined, false);
       const wav = isWav(audio);
       const form = new FormData();
       form.set("text", text);

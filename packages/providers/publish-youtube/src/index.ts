@@ -1,6 +1,7 @@
 import { createReadStream, existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import {
+  isRetriableStatus,
   defineManifest,
   newId,
   nowIso,
@@ -29,14 +30,18 @@ interface YouTubeStatus {
   publishAt?: string;
   containsSyntheticMedia?: boolean;
   uploadStatus?: string;
+  [field: string]: unknown;
 }
+
+/** Fields videos.list returns in `status` that videos.update does not accept. */
+const READ_ONLY_STATUS = ["uploadStatus", "failureReason", "rejectionReason", "madeForKids"] as const;
 
 interface YouTubeVideo {
   id?: string;
   status?: YouTubeStatus;
 }
 
-interface VideoBody {
+export interface VideoBody {
   size: number;
   open: (start: number) => { body: BodyInit; duplex?: "half" };
 }
@@ -101,16 +106,20 @@ export function create(ctx: ProviderContext): Publisher {
       const token = await accessToken();
       const scheduled = Boolean(publishAt && new Date(publishAt).getTime() > Date.now());
       const wirePrivacy: Privacy = scheduled ? "private" : privacy;
-      const status: YouTubeStatus = {
+      // videos.update replaces the whole status object: start from the current one so
+      // embeddable, license, publicStatsViewable and the kids flag keep their values.
+      const current = await getVideo(token, upload.remoteId);
+      const status = statusForUpdate(current.status ?? {}, {
         privacyStatus: wirePrivacy,
         containsSyntheticMedia: upload.containsSyntheticMedia,
-      };
-      if (publishAt) status.publishAt = publishAt;
+        // YouTube accepts publishAt only on a private video, i.e. only when scheduling.
+        publishAt: scheduled ? publishAt : undefined,
+      });
       await updateStatus(token, upload.remoteId, status);
       return {
         ...upload,
         privacy: wirePrivacy,
-        publishAt,
+        publishAt: scheduled ? publishAt : undefined,
         status: scheduled ? "scheduled" : privacy === "public" ? "published" : "uploaded",
         updatedAt: nowIso(),
       };
@@ -159,48 +168,69 @@ async function resumableInsert(token: string, video: VideoBody, meta: UploadMeta
     },
     body: JSON.stringify(metadata),
   });
-  if (!start.ok) throw new ProviderError(`publish-youtube: insert session ${start.status} ${await snippet(start)}`, start.status);
+  if (!start.ok) throw youtubeError("insert session", start.status, await snippet(start));
   const location = start.headers.get("location");
   if (!location) throw new Error("publish-youtube: insert session missing Location");
   return putResumable(location, video);
 }
 
-async function putResumable(location: string, video: VideoBody): Promise<YouTubeVideo> {
+/** Attempts per upload: each failed PUT is followed by a status probe and a resume from the confirmed offset. */
+const UPLOAD_ATTEMPTS = 6;
+
+export async function putResumable(location: string, video: VideoBody, sleep = defaultSleep): Promise<YouTubeVideo> {
   let offset = 0;
-  for (let attempt = 0; attempt < 4; attempt++) {
+  let lastError = "no attempt made";
+  for (let attempt = 0; attempt < UPLOAD_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(Math.min(8000, 500 * 2 ** (attempt - 1)));
     const chunk = video.open(offset);
-    const headers: Record<string, string> = {
-      "content-type": "video/mp4",
-      "content-range": `bytes ${offset}-${video.size - 1}/${video.size}`,
-    };
-    const res = await fetch(location, {
-      method: "PUT",
-      headers,
-      body: chunk.body,
-      ...(chunk.duplex ? { duplex: chunk.duplex } : {}),
-    } as RequestInit);
-    if (res.status === 200 || res.status === 201) return (await res.json()) as YouTubeVideo;
-    if (res.status === 308) {
-      offset = nextOffset(res.headers.get("range"), offset);
-      continue;
+    let res: Response | undefined;
+    try {
+      res = await fetch(location, {
+        method: "PUT",
+        headers: { "content-type": "video/mp4", "content-range": `bytes ${offset}-${video.size - 1}/${video.size}` },
+        body: chunk.body,
+        ...(chunk.duplex ? { duplex: chunk.duplex } : {}),
+      } as RequestInit);
+    } catch (err) {
+      // Dropped connection: ask the session how much arrived instead of starting a new insert.
+      lastError = err instanceof Error ? err.message : String(err);
     }
-    const probe = await fetch(location, {
-      method: "PUT",
-      headers: { "content-range": `bytes */${video.size}` },
-    });
-    if (probe.status === 200 || probe.status === 201) return (await probe.json()) as YouTubeVideo;
-    if (probe.status === 308) {
-      offset = nextOffset(probe.headers.get("range"), offset);
-      continue;
+    if (res) {
+      if (res.status === 200 || res.status === 201) return (await res.json()) as YouTubeVideo;
+      if (res.status === 308) {
+        offset = nextOffset(res.headers.get("range"));
+        continue;
+      }
+      lastError = `${res.status} ${await snippet(res)}`;
+      // 4xx other than 408/429 on the session itself will not get better by retrying.
+      if (res.status !== 404 && !isRetriableStatus(res.status)) {
+        throw new ProviderError(`publish-youtube: upload ${lastError}`, res.status);
+      }
     }
-    throw new ProviderError(`publish-youtube: upload ${res.status} ${await snippet(res)}`, res.status);
+    const probe = await fetch(location, { method: "PUT", headers: { "content-range": `bytes */${video.size}` } }).catch(
+      () => undefined,
+    );
+    if (probe && (probe.status === 200 || probe.status === 201)) return (await probe.json()) as YouTubeVideo;
+    if (probe?.status === 308) offset = nextOffset(probe.headers.get("range"));
+    else if (probe && probe.status === 404) throw new ProviderError("publish-youtube: upload session expired", 404, true);
   }
-  throw new Error("publish-youtube: upload retries exhausted");
+  throw new ProviderError(`publish-youtube: upload failed after ${UPLOAD_ATTEMPTS} attempts: ${lastError}`);
 }
 
-function nextOffset(range: string | null, current: number): number {
+/** Next byte to send after a 308. No Range header means the server holds nothing yet. */
+export function nextOffset(range: string | null): number {
   const match = range?.match(/(\d+)$/);
-  return match ? Number(match[1]) + 1 : current;
+  return match ? Number(match[1]) + 1 : 0;
+}
+
+/** 403 is usually permanent, but YouTube also uses it for short-term rate limits. */
+export function youtubeError(context: string, status: number, body: string): ProviderError {
+  const rateLimited = status === 403 && /"reason":\s*"(rateLimitExceeded|userRateLimitExceeded)"/.test(body);
+  return new ProviderError(`publish-youtube: ${context} ${status} ${body}`, status, rateLimited ? true : undefined);
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function updateStatus(token: string, id: string, status: YouTubeStatus): Promise<void> {
@@ -209,7 +239,7 @@ async function updateStatus(token: string, id: string, status: YouTubeStatus): P
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ id, status }),
   });
-  if (!res.ok) throw new ProviderError(`publish-youtube: update ${res.status} ${await snippet(res)}`, res.status);
+  if (!res.ok) throw youtubeError("update", res.status, await snippet(res));
 }
 
 async function getVideo(token: string, id: string): Promise<YouTubeVideo> {
@@ -217,7 +247,7 @@ async function getVideo(token: string, id: string): Promise<YouTubeVideo> {
   url.searchParams.set("part", "status");
   url.searchParams.set("id", id);
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new ProviderError(`publish-youtube: status ${res.status} ${await snippet(res)}`, res.status);
+  if (!res.ok) throw youtubeError("status", res.status, await snippet(res));
   const json = (await res.json()) as { items?: YouTubeVideo[] };
   const item = json.items?.[0];
   if (!item) throw new ProviderError(`publish-youtube: video ${id} not found`, 404);
@@ -249,8 +279,17 @@ function watchUrl(id: string): string {
 
 function requireEnv(env: Record<string, string | undefined>, key: string): string {
   const value = env[key];
-  if (!value) throw new Error(`${key} is not set`);
+  if (!value) throw new ProviderError(`publish-youtube: ${key} is not set`, undefined, false);
   return value;
+}
+
+/** Current status minus read-only fields, with our changes applied; publishAt removed unless given. */
+export function statusForUpdate(current: YouTubeStatus, changes: YouTubeStatus): YouTubeStatus {
+  const next: YouTubeStatus = { ...current };
+  for (const field of READ_ONLY_STATUS) delete next[field];
+  delete next.publishAt;
+  for (const [key, value] of Object.entries(changes)) if (value !== undefined) next[key] = value;
+  return next;
 }
 
 function stringOpt(value: unknown): string | undefined {

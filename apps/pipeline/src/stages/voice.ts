@@ -1,7 +1,7 @@
 import { newId, nowIso, scriptText, type Narration } from "@vcp/core";
 import { limits } from "@vcp/limits";
 import { DEFAULT_TIGHTEN, tightenPauses } from "../audio/pauses";
-import { StageError, defineStage, voiceOptions, type StageCtx } from "./context";
+import { StageError, defineStage, isFakeProvider, voiceOptions } from "./context";
 
 const EXT: Record<string, string> = { "audio/wav": "wav", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac" };
 
@@ -31,12 +31,17 @@ export const voice = defineStage({
     let contentType = synth.contentType;
     let tightened = { removedSec: 0, pauses: 0 };
     const maxPauseSec = pauseLimit(input.voice.options);
-    if (maxPauseSec !== null && !speechIsFake(ctx)) {
-      const out = await tightenPauses(audio, words, { ...DEFAULT_TIGHTEN, maxPauseSec });
-      audio = out.audio;
-      contentType = out.contentType ?? contentType;
-      words = out.words;
-      tightened = { removedSec: out.removedSec, pauses: out.pauses };
+    if (maxPauseSec !== null && !isFakeProvider(ctx, "Speech")) {
+      try {
+        const out = await tightenPauses(audio, words, { ...DEFAULT_TIGHTEN, maxPauseSec });
+        audio = out.audio;
+        contentType = out.contentType ?? contentType;
+        words = out.words;
+        tightened = { removedSec: out.removedSec, pauses: out.pauses };
+      } catch (err) {
+        // Keep the paid narration rather than fail the stage and synthesize it again on retry.
+        console.warn(`voice: pause tightening skipped (${err instanceof Error ? err.message : String(err)})`);
+      }
     }
 
     const id = newId();
@@ -75,9 +80,4 @@ function pauseLimit(options: Record<string, unknown> | undefined): number | null
   const v = options?.maxPauseSec;
   if (v === false) return null;
   return typeof v === "number" && v > 0 ? v : DEFAULT_TIGHTEN.maxPauseSec;
-}
-
-function speechIsFake(ctx: StageCtx): boolean {
-  const id = ctx.ports.Speech.id;
-  return ctx.registry.manifests().some((m) => m.id === id && m.fake === true);
 }

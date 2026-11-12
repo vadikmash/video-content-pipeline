@@ -113,7 +113,14 @@ export async function retryStage(projectId: string): Promise<void> {
   await logEvent(projectId, "stage.retry", { stage, previousError: row.error ?? null, previousAttempt: row.attempt ?? null });
 
   const trigger = retryTrigger(stage);
-  if (trigger.event === "idea.selected") await sendEvent("idea.selected", { projectId, ideaId: project.ideaId });
-  else await sendEvent("stage.completed", { projectId, stage: trigger.after });
+  try {
+    if (trigger.event === "idea.selected") await sendEvent("idea.selected", { projectId, ideaId: project.ideaId });
+    else await sendEvent("stage.completed", { projectId, stage: trigger.after });
+  } catch (err) {
+    // Nothing will run: put the failed state back so the Retry button stays available.
+    await upsertStage(projectId, stage, { status: "failed", error: row.error ?? "retry could not be queued" });
+    await updateProject(projectId, { status: "failed", currentStage: stage });
+    throw err;
+  }
   revalidatePath(`/projects/${projectId}`);
 }

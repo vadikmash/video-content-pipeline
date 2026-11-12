@@ -234,13 +234,20 @@ describe("Publisher", () => {
         bytes = new Uint8Array(readFileSync(file));
       }
       const blobRef = await blob.put(`contracts/${p.id}-upload.mp4`, bytes, "video/mp4");
-      const meta = { title: "t", description: "d", tags: [], containsSyntheticMedia: false };
+      const meta = { title: "vcp contract test", description: "Automated contract test upload.", tags: [], containsSyntheticMedia: false };
       const up = await pub.upload({ ...render, blob: blobRef }, meta, "private");
       expect(() => Upload.parse(up)).not.toThrow();
       expect(up.privacy).toBe("private");
-      const pubd = await pub.setPrivacy(up, "public");
-      expect(pubd.privacy).toBe("public");
-      expect((await pub.status(pubd)).privacy).toBe("public");
+      // A real channel never gets a public test video: exercise the privacy change with
+      // "unlisted" on YouTube, and always put it back to private afterwards.
+      const target = p.id === "publish-youtube" ? "unlisted" : "public";
+      try {
+        const changed = await pub.setPrivacy(up, target);
+        expect(changed.privacy).toBe(target);
+        expect((await pub.status(changed)).privacy).toBe(target);
+      } finally {
+        if (p.id === "publish-youtube") await pub.setPrivacy(up, "private");
+      }
     });
   }
 });
