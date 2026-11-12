@@ -9,6 +9,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
 
 const BG = "#0f172a";
@@ -20,6 +21,8 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
   const { fps } = useVideoConfig();
   const toFrames = (s: number) => Math.max(0, Math.round(s * fps));
   const closingStart = Math.max(0, props.durationSec - 2.5);
+  const frame = useCurrentFrame();
+  const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
@@ -27,15 +30,8 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
         <Audio
           src={props.musicUrl}
           loop
-          volume={(frame) => {
-            const t = frame / fps;
-            const fadeIn = interpolate(t, [0, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-            const fadeOut = interpolate(t, [closingStart, props.durationSec], [1, 0], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-            });
-            return 0.15 * fadeIn * fadeOut;
-          }}
+          // Absolute composition time: with loop, the volume callback's frame restarts every iteration.
+          volume={musicVolume(frame / fps, spans, props.durationSec)}
         />
       ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}

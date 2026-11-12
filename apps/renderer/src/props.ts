@@ -41,7 +41,7 @@ export const FactShortProps = z.object({
   sources: z.array(z.string()).default([]),
   /** Shown on the closing card when true. */
   containsSyntheticMedia: z.boolean().default(false),
-  /** Optional music bed, ducked under narration. Omitted when no bed file is configured. */
+  /** Optional music bed, ducked under narration (see music.ts). Omitted when no bed file is configured. */
   musicUrl: z.string().optional(),
 });
 export type FactShortProps = z.infer<typeof FactShortProps>;

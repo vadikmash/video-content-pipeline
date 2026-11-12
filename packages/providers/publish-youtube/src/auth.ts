@@ -9,7 +9,8 @@ import { createServer } from "node:http";
 
 const PORT = 8765;
 const REDIRECT = `http://127.0.0.1:${PORT}/callback`;
-const SCOPES = ["https://www.googleapis.com/auth/youtube.upload", "https://www.googleapis.com/auth/youtube.readonly"].join(" ");
+// videos.update (publish, schedule) needs the full youtube scope; youtube.upload only covers insert.
+const SCOPES = ["https://www.googleapis.com/auth/youtube"].join(" ");
 
 const clientId = process.env.YOUTUBE_CLIENT_ID;
 const clientSecret = process.env.YOUTUBE_CLIENT_SECRET;
