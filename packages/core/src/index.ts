@@ -1,4 +1,5 @@
 export * from "./schemas";
+export * from "./errors";
 export * from "./llm";
 export * from "./ports";
 export * from "./manifest";

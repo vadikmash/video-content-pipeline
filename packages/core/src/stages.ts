@@ -55,6 +55,19 @@ export function previousStage(stage: StageName): StageName | undefined {
   return i > 0 ? STAGES[i - 1] : undefined;
 }
 
+/**
+ * The event that (re)starts `stage`: each stage triggers on stage.completed of
+ * the one before it, and the first one on idea.selected. Used to retry a failed stage.
+ */
+export function retryTrigger(stage: StageName): { event: "idea.selected" } | { event: "stage.completed"; after: StageName } {
+  const prev = previousStage(stage);
+  return prev ? { event: "stage.completed", after: prev } : { event: "idea.selected" };
+}
+
+export function isStageName(name: string): name is StageName {
+  return (STAGES as readonly string[]).includes(name);
+}
+
 /** Ports each work stage calls; used for the stage rail and the idempotency hash. */
 export const STAGE_PORTS: Record<StageName, readonly PortName[]> = {
   research: ["WebResearch", "TextModel"],

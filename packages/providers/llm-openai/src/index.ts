@@ -6,6 +6,7 @@ import {
   type Prompt,
   type ProviderContext,
   type TextModel,
+  ProviderError,
 } from "@vcp/core";
 
 export const manifest = defineManifest({
@@ -65,7 +66,7 @@ async function complete(
     choices?: { message?: { content?: string | null } }[];
   };
   if (!res.ok) {
-    throw new Error(`llm-openai: ${res.status} ${body.error?.message ?? res.statusText}`);
+    throw new ProviderError(`llm-openai: ${res.status} ${body.error?.message ?? res.statusText}`, res.status);
   }
   const content = body.choices?.[0]?.message?.content;
   if (!content) return undefined;

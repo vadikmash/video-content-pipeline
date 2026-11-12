@@ -1,14 +1,17 @@
 "use server";
 
-import { Script, newId, scriptText } from "@vcp/core";
+import { Script, isStageName, newId, retryTrigger, scriptText } from "@vcp/core";
 import {
   getProject,
+  getStage,
   insertScript,
   latestRender,
   latestScript,
   latestUpload,
   logEvent,
   nextScriptVersion,
+  updateProject,
+  upsertStage,
 } from "@vcp/db";
 import { revalidatePath } from "next/cache";
 import { sendEvent } from "@/lib/inngest";
@@ -92,5 +95,25 @@ export async function rejectProject(projectId: string, formData: FormData): Prom
   const stage = project.currentStage ?? "unknown";
   await logEvent(projectId, "project.rejected.requested", { stage, reason });
   await sendEvent("project.rejected", { projectId, stage, reason });
+  revalidatePath(`/projects/${projectId}`);
+}
+
+/** Re-run the stage a failed project stopped at, by re-sending the event that triggers it. */
+export async function retryStage(projectId: string): Promise<void> {
+  const project = await requireProject(projectId);
+  const stage = project.currentStage;
+  if (project.status !== "failed" || !stage || !isStageName(stage)) {
+    throw new Error("Only a failed project can be retried");
+  }
+  const row = await getStage(projectId, stage);
+  if (row?.status !== "failed") throw new Error(`stage ${stage} is not failed`);
+
+  await upsertStage(projectId, stage, { status: "pending", error: null, finishedAt: null });
+  await updateProject(projectId, { status: "active", currentStage: stage });
+  await logEvent(projectId, "stage.retry", { stage, previousError: row.error ?? null, previousAttempt: row.attempt ?? null });
+
+  const trigger = retryTrigger(stage);
+  if (trigger.event === "idea.selected") await sendEvent("idea.selected", { projectId, ideaId: project.ideaId });
+  else await sendEvent("stage.completed", { projectId, stage: trigger.after });
   revalidatePath(`/projects/${projectId}`);
 }

@@ -1,4 +1,4 @@
-import { defineManifest, type Aligner, type ProviderContext } from "@vcp/core";
+import { defineManifest, type Aligner, type ProviderContext, ProviderError } from "@vcp/core";
 import { wordsFromAlignment } from "@vcp/provider-tts-elevenlabs";
 
 export const manifest = defineManifest({
@@ -39,7 +39,7 @@ export function create(ctx: ProviderContext): Aligner {
       if (!res.ok) {
         const detail = body.detail;
         const message = typeof detail === "string" ? detail : (detail?.message ?? res.statusText);
-        throw new Error(`align-elevenlabs: ${res.status} ${message}`);
+        throw new ProviderError(`align-elevenlabs: ${res.status} ${message}`, res.status);
       }
       const timed = (body.words ?? [])
         .filter((word) => typeof word.text === "string")

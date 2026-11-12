@@ -5,6 +5,7 @@ import {
   strictJsonSchema,
   type ProviderContext,
   type TextModel,
+  ProviderError,
 } from "@vcp/core";
 
 export const manifest = defineManifest({
@@ -67,7 +68,7 @@ async function complete(
     content?: { type: string; input?: unknown }[];
   };
   if (!res.ok) {
-    throw new Error(`llm-anthropic: ${res.status} ${body.error?.message ?? res.statusText}`);
+    throw new ProviderError(`llm-anthropic: ${res.status} ${body.error?.message ?? res.statusText}`, res.status);
   }
   const tool = body.content?.find((block) => block.type === "tool_use");
   return tool?.input;

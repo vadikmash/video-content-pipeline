@@ -11,6 +11,7 @@ import {
   type Render,
   type Upload,
   type UploadMeta,
+  ProviderError,
 } from "@vcp/core";
 
 export const manifest = defineManifest({
@@ -62,7 +63,7 @@ export function create(ctx: ProviderContext): Publisher {
     });
     const json = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
     if (!res.ok || !json.access_token) {
-      throw new Error(`publish-youtube: oauth ${res.status} ${json.error_description ?? "no access token"}`);
+      throw new ProviderError(`publish-youtube: oauth ${res.status} ${json.error_description ?? "no access token"}`, res.status);
     }
     cached = { value: json.access_token, expiresAt: Date.now() + (json.expires_in ?? 3600) * 1000 };
     return json.access_token;
@@ -158,7 +159,7 @@ async function resumableInsert(token: string, video: VideoBody, meta: UploadMeta
     },
     body: JSON.stringify(metadata),
   });
-  if (!start.ok) throw new Error(`publish-youtube: insert session ${start.status} ${await snippet(start)}`);
+  if (!start.ok) throw new ProviderError(`publish-youtube: insert session ${start.status} ${await snippet(start)}`, start.status);
   const location = start.headers.get("location");
   if (!location) throw new Error("publish-youtube: insert session missing Location");
   return putResumable(location, video);
@@ -192,7 +193,7 @@ async function putResumable(location: string, video: VideoBody): Promise<YouTube
       offset = nextOffset(probe.headers.get("range"), offset);
       continue;
     }
-    throw new Error(`publish-youtube: upload ${res.status} ${await snippet(res)}`);
+    throw new ProviderError(`publish-youtube: upload ${res.status} ${await snippet(res)}`, res.status);
   }
   throw new Error("publish-youtube: upload retries exhausted");
 }
@@ -208,7 +209,7 @@ async function updateStatus(token: string, id: string, status: YouTubeStatus): P
     headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
     body: JSON.stringify({ id, status }),
   });
-  if (!res.ok) throw new Error(`publish-youtube: update ${res.status} ${await snippet(res)}`);
+  if (!res.ok) throw new ProviderError(`publish-youtube: update ${res.status} ${await snippet(res)}`, res.status);
 }
 
 async function getVideo(token: string, id: string): Promise<YouTubeVideo> {
@@ -216,10 +217,10 @@ async function getVideo(token: string, id: string): Promise<YouTubeVideo> {
   url.searchParams.set("part", "status");
   url.searchParams.set("id", id);
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`publish-youtube: status ${res.status} ${await snippet(res)}`);
+  if (!res.ok) throw new ProviderError(`publish-youtube: status ${res.status} ${await snippet(res)}`, res.status);
   const json = (await res.json()) as { items?: YouTubeVideo[] };
   const item = json.items?.[0];
-  if (!item) throw new Error(`publish-youtube: video ${id} not found`);
+  if (!item) throw new ProviderError(`publish-youtube: video ${id} not found`, 404);
   return { ...item, id: item.id ?? id };
 }
 

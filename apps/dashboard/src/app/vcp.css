@@ -304,9 +304,10 @@ tr.is-failed .vcp-sb-visual > span:last-child { color: var(--failed); }
 .vcp-notice { display: flex; align-items: flex-start; gap: 10px; padding: 10px var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--tone-tint); font-size: 13px; line-height: 18px; }
 .vcp-notice.vcp-tone-muted { background: var(--surface); }
 .vcp-notice > .vcp-icon { margin-top: 1px; color: var(--tone); }
-.vcp-notice-body { flex: 1; display: flex; flex-wrap: wrap; gap: 2px 8px; }
+.vcp-notice-body { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 8px; overflow-wrap: anywhere; }
 .vcp-notice-body strong { font-weight: 600; }
 .vcp-notice-body span { color: var(--ink-muted); }
+.vcp-notice-action { flex-shrink: 0; align-self: center; }
 .vcp-notice-x { flex: none; display: grid; place-items: center; width: 22px; height: 22px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--ink-muted); cursor: pointer; }
 .vcp-notice-x:hover { color: var(--ink); }
 .vcp-live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--ink-muted); white-space: nowrap; }

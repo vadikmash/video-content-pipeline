@@ -1,4 +1,4 @@
-import { defineManifest, type ProviderContext, type Speech, type Voice } from "@vcp/core";
+import { defineManifest, type ProviderContext, type Speech, type Voice, ProviderError } from "@vcp/core";
 import { wordsFromCharacters } from "./words";
 
 export const manifest = defineManifest({
@@ -42,7 +42,7 @@ export function create(ctx: ProviderContext): Speech {
         alignment?: Alignment;
         normalized_alignment?: Alignment;
       };
-      if (!res.ok) throw new Error(`tts-elevenlabs: ${res.status} ${detailMessage(body.detail) || res.statusText}`);
+      if (!res.ok) throw new ProviderError(`tts-elevenlabs: ${res.status} ${detailMessage(body.detail) || res.statusText}`, res.status);
       if (!body.audio_base64) throw new Error("tts-elevenlabs: response had no audio");
       const audio = Uint8Array.from(Buffer.from(body.audio_base64, "base64"));
       const alignment = body.normalized_alignment?.characters?.length ? body.normalized_alignment : body.alignment;
