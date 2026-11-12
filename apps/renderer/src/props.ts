@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "0.1.0";
+export const TEMPLATE_VERSION = "1.0.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
@@ -41,6 +41,8 @@ export const FactShortProps = z.object({
   sources: z.array(z.string()).default([]),
   /** Shown on the closing card when true. */
   containsSyntheticMedia: z.boolean().default(false),
+  /** Optional music bed, ducked under narration. Omitted when no bed file is configured. */
+  musicUrl: z.string().optional(),
 });
 export type FactShortProps = z.infer<typeof FactShortProps>;
 export type SceneProp = z.infer<typeof SceneProp>;

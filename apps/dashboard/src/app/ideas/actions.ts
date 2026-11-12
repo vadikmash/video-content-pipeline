@@ -25,7 +25,8 @@ export async function addIdea(formData: FormData): Promise<void> {
   const idea = NewIdea.parse({
     origin: "manual",
     sourceProvider: "source-manual",
-    sourceUrl: form.evidenceUrl || undefined,
+    // The pasted URL is a citation, not the post the idea was copied from.
+    // Setting it as sourceUrl makes research reject every hand-added idea.
     title: form.title,
     oneLiner: form.oneLiner,
     whySurprising: form.whySurprising,

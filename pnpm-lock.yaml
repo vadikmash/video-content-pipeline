@@ -198,11 +198,30 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/providers/align-elevenlabs:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@vcp/provider-tts-elevenlabs':
+        specifier: workspace:*
+        version: link:../tts-elevenlabs
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/providers/all:
     dependencies:
       '@vcp/core':
         specifier: workspace:*
         version: link:../../core
+      '@vcp/provider-align-elevenlabs':
+        specifier: workspace:*
+        version: link:../align-elevenlabs
       '@vcp/provider-blob-local':
         specifier: workspace:*
         version: link:../blob-local
@@ -236,12 +255,24 @@ importers:
       '@vcp/provider-fake-tts':
         specifier: workspace:*
         version: link:../fake-tts
+      '@vcp/provider-llm-anthropic':
+        specifier: workspace:*
+        version: link:../llm-anthropic
+      '@vcp/provider-llm-openai':
+        specifier: workspace:*
+        version: link:../llm-openai
+      '@vcp/provider-publish-youtube':
+        specifier: workspace:*
+        version: link:../publish-youtube
       '@vcp/provider-render-remotion':
         specifier: workspace:*
         version: link:../render-remotion
       '@vcp/provider-source-manual':
         specifier: workspace:*
         version: link:../source-manual
+      '@vcp/provider-tts-elevenlabs':
+        specifier: workspace:*
+        version: link:../tts-elevenlabs
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -462,6 +493,48 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/providers/llm-anthropic:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/providers/llm-openai:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/providers/publish-youtube:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/providers/render-remotion:
     dependencies:
       '@remotion/bundler':
@@ -504,6 +577,19 @@ importers:
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/providers/tts-elevenlabs:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       typescript:
         specifier: ^5.9.0

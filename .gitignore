@@ -12,4 +12,5 @@ out/
 .DS_Store
 coverage/
 apps/renderer/out/
+apps/renderer/public/bed.mp3
 .remotion-bundle/

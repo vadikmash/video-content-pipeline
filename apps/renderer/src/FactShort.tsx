@@ -23,6 +23,21 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
+      {props.musicUrl ? (
+        <Audio
+          src={props.musicUrl}
+          loop
+          volume={(frame) => {
+            const t = frame / fps;
+            const fadeIn = interpolate(t, [0, 0.5], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+            const fadeOut = interpolate(t, [closingStart, props.durationSec], [1, 0], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            return 0.15 * fadeIn * fadeOut;
+          }}
+        />
+      ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
       {props.scenes.map((scene) => (

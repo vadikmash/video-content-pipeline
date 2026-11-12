@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { WORK_STAGES, approveGate, research, runStage, write } from "../src/stages/index";
 import { beatTimings } from "../src/stages/storyboard";
 import { hasIndependentSource } from "../src/stages/research";
-import { makeWorld } from "./helpers";
+import { EMU_IDEA, makeWorld } from "./helpers";
 
 /**
  * Fast pipeline test: every stage on fakes, including fake-render.
@@ -32,6 +32,13 @@ describe("pipeline on fakes", () => {
     const render = await store.latestRender(project.id);
     expect(render).toBeDefined();
     expect(existsSync(path.join(world.dir, render!.blob.key))).toBe(true);
+
+    const brief = await store.latestBrief(project.id);
+    expect(brief?.sources.some((s) => s.includes("britannica") || s.includes("smithsonian"))).toBe(false);
+    expect(brief?.sources).toContain("https://www.awm.gov.au/articles/encyclopedia/emu-war");
+
+    const board = await store.latestStoryboard(project.id);
+    expect(board?.scenes.every((s) => s.visual.kind === "type" && !s.assetId)).toBe(true);
 
     const upload = await store.latestUpload(project.id);
     expect(upload?.privacy).toBe("public");
@@ -74,7 +81,7 @@ describe("pipeline on fakes", () => {
     world = makeWorld();
     const { project, store, deps } = world;
     world.registry.register(
-      { id: "boom", port: "WebResearch", env: [], limits: {}, attributionRequired: false, costModel: { unit: "request", approxUsd: 0 }, fake: true },
+      { id: "boom", port: "WebResearch", env: [], limits: {}, attributionRequired: false, costModel: { unit: "request", approxUsd: 0 } },
       () => ({
         id: "boom",
         search: async () => {
@@ -89,13 +96,57 @@ describe("pipeline on fakes", () => {
     expect(stage?.status).toBe("failed");
     expect(stage?.error).toContain("kaboom");
   });
+
+  it("skips a fake WebResearch provider and cites the idea's evidence", async () => {
+    world = makeWorld();
+    let called = false;
+    world.registry.register(
+      {
+        id: "fake-research-spy",
+        port: "WebResearch",
+        env: [],
+        limits: {},
+        attributionRequired: false,
+        costModel: { unit: "request", approxUsd: 0 },
+        fake: true,
+      },
+      () => ({
+        id: "fake-research-spy",
+        search: async () => {
+          called = true;
+          return [];
+        },
+        fetch: async () => "",
+      }),
+    );
+    world.config.ports.WebResearch = { providerId: "fake-research-spy", options: {} };
+    await runStage(research, world.project.id, world.deps);
+    expect(called).toBe(false);
+    const brief = await world.store.latestBrief(world.project.id);
+    expect(brief?.sources.some((s) => s.includes("britannica") || s.includes("smithsonian"))).toBe(false);
+    expect(brief?.sources).toContain("https://www.awm.gov.au/articles/encyclopedia/emu-war");
+  });
+
+  it("refuses a non-opinion idea with no source besides its origin when research is fake", async () => {
+    world = makeWorld();
+    const cases = [
+      [],
+      [{ url: EMU_IDEA.sourceUrl!, quote: "The emu war was a nuisance wildlife management military operation." }],
+    ];
+    for (const evidence of cases) {
+      const bare = world.store.addIdea({ ...EMU_IDEA, evidence, title: `bare-${evidence.length}` });
+      const project = world.store.addProject(bare.id);
+      await expect(runStage(research, project.id, world.deps)).rejects.toThrow(/evidence URL/);
+    }
+  });
 });
 
 describe("originality rule", () => {
   const idea = { ...makeWorldIdea(), opinion: false };
-  it("needs a source that is not the idea's own", () => {
+  it("needs a source that is not the idea's origin post", () => {
     expect(hasIndependentSource(idea, ["https://en.wikipedia.org/wiki/Great_Emu_War"])).toBe(false);
     expect(hasIndependentSource(idea, ["https://en.wikipedia.org/wiki/Great_Emu_War", "https://x.example/y"])).toBe(true);
+    expect(hasIndependentSource(idea, ["https://www.awm.gov.au/articles/encyclopedia/emu-war"])).toBe(true);
   });
   it("opinion ideas skip the rule", () => {
     expect(hasIndependentSource({ ...idea, opinion: true }, [])).toBe(true);

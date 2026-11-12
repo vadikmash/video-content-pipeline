@@ -1,0 +1,22 @@
+{
+  "name": "@vcp/provider-publish-youtube",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "auth": "tsx --env-file-if-exists=../../../.env src/auth.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vcp/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.0",
+    "vitest": "^5.1.0"
+  }
+}
