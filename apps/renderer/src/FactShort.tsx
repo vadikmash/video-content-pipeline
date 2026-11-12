@@ -9,6 +9,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { captionPages, pageAt } from "./captions";
 import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
 
@@ -143,32 +144,50 @@ const TitleCard: React.FC<{ title: string }> = ({ title }) => {
   );
 };
 
+/**
+ * Phrase captions: a short phrase stays in place while it is spoken and
+ * cross-fades to the next one. Words not yet spoken sit dimmer and ease up as
+ * they are said; nothing moves or changes colour word by word.
+ */
 const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const pages = React.useMemo(() => captionPages(words), [words]);
   const t = frame / fps;
-  const idx = words.findIndex((w) => t >= w.start && t < w.end);
-  if (idx < 0) return null;
-  const windowStart = Math.max(0, idx - 3);
-  const slice = words.slice(windowStart, windowStart + 7);
+  const page = pageAt(pages, t);
+  if (!page) return null;
+
+  const FADE = 0.18;
+  const appear = interpolate(t, [page.start - 0.02, page.start + FADE], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const vanish = interpolate(t, [page.end - FADE, page.end], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const rise = interpolate(appear, [0, 1], [10, 0]);
+
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 360 }}>
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 300 }}>
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: 14,
-          maxWidth: 940,
-          fontSize: 54,
-          fontWeight: 700,
-          textShadow: "0 4px 24px rgba(0,0,0,0.8)",
+          maxWidth: 860,
+          padding: "18px 30px",
+          borderRadius: 22,
+          background: "rgba(2, 6, 23, 0.55)",
+          fontSize: 46,
+          fontWeight: 600,
+          lineHeight: 1.3,
+          letterSpacing: "-0.005em",
+          textAlign: "center",
+          color: TEXT,
+          opacity: appear * vanish,
+          transform: `translateY(${rise}px)`,
         }}
       >
-        {slice.map((w, i) => {
-          const active = windowStart + i === idx;
+        {page.words.map((w, i) => {
+          const spoken = interpolate(t, [w.start - 0.05, w.start + 0.15], [0.5, 1], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          });
           return (
-            <span key={`${w.start}-${i}`} style={{ color: active ? ACCENT : TEXT, opacity: active ? 1 : 0.85 }}>
+            <span key={`${w.start}-${i}`} style={{ opacity: spoken }}>
+              {i ? " " : ""}
               {w.text}
             </span>
           );
