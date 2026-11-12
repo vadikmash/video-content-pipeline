@@ -1,5 +1,5 @@
 import { defineManifest, type ProviderContext, type Speech, type Voice, ProviderError } from "@vcp/core";
-import { wordsFromCharacters } from "./words";
+import { matchCharacters, type WordMatch } from "./words";
 
 export const manifest = defineManifest({
   id: "tts-elevenlabs",
@@ -16,9 +16,9 @@ const DEFAULT_MODEL = "eleven_multilingual_v2";
 /** Slightly faster than the voice's natural pace; ElevenLabs accepts 0.7-1.2. */
 export const DEFAULT_SPEED = 1.1;
 
-export { wordsFromAlignment, wordsFromCharacters } from "./words";
+export { matchCharacters, wordsFromAlignment, wordsFromCharacters } from "./words";
 
-interface Alignment {
+export interface Alignment {
   characters?: string[];
   character_start_times_seconds?: number[];
   character_end_times_seconds?: number[];
@@ -55,18 +55,30 @@ export function create(ctx: ProviderContext): Speech {
       if (!res.ok) throw new ProviderError(`tts-elevenlabs: ${res.status} ${detailMessage(body.detail) || res.statusText}`, res.status);
       if (!body.audio_base64) throw new Error("tts-elevenlabs: response had no audio");
       const audio = Uint8Array.from(Buffer.from(body.audio_base64, "base64"));
-      const alignment = body.normalized_alignment?.characters?.length ? body.normalized_alignment : body.alignment;
-      const words = alignment?.characters?.length
-        ? wordsFromCharacters(
-            text,
-            alignment.characters,
-            alignment.character_start_times_seconds ?? [],
-            alignment.character_end_times_seconds ?? [],
-          )
-        : undefined;
+      const words = timingsFor(text, body.alignment, body.normalized_alignment);
       return { audio, contentType: "audio/mpeg", words };
     },
   };
+}
+
+/** Below this share of matched words the timings are mostly guesses: let the Aligner do it. */
+export const MIN_MATCHED_RATIO = 0.85;
+
+/**
+ * Word timings for the captions. `alignment` covers the text exactly as sent; the
+ * normalized one spells out numbers and symbols ("12" -> "twelve"), so it is only a
+ * fallback. Returns undefined when too few words could be matched, so the voice stage
+ * falls back to forced alignment instead of captions drifting off the speech.
+ */
+export function timingsFor(text: string, ...candidates: (Alignment | undefined)[]): WordMatch["words"] | undefined {
+  let best: WordMatch | undefined;
+  for (const a of candidates) {
+    if (!a?.characters?.length) continue;
+    const m = matchCharacters(text, a.characters, a.character_start_times_seconds ?? [], a.character_end_times_seconds ?? []);
+    if (!best || m.matchedRatio > best.matchedRatio) best = m;
+    if (m.matchedRatio === 1) break;
+  }
+  return best && best.matchedRatio >= MIN_MATCHED_RATIO ? best.words : undefined;
 }
 
 export function resolveVoiceId(voice: Voice, env: Record<string, string | undefined>): string {

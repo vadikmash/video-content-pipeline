@@ -6,59 +6,125 @@ export interface TimedText {
   end: number;
 }
 
+export interface WordMatch {
+  words: Word[];
+  /** Share of tokens whose timing came from the provider; the rest were interpolated. */
+  matchedRatio: number;
+}
+
 const round = (n: number) => Math.round(n * 1000) / 1000;
+
+/** How far ahead (in characters) a token may be found; further means we lost our place. */
+const MAX_SKIP = 48;
+/** Duration given to an unmatched word with no matched neighbour on one side. */
+const FALLBACK_WORD_SEC = 0.3;
 
 export function tokensOf(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
 
-/** Map a provider's timed fragments onto the whitespace tokens of `text`. */
-export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
-  const tokens = tokensOf(text);
-  if (!tokens.length) return [];
-  const spoken = timed.filter((w) => w.text.trim().length > 0);
-  if (spoken.length === tokens.length) {
-    return monotonic(
-      tokens.map((token, i) => ({
-        text: token,
-        start: spoken[i]!.start,
-        end: Math.max(spoken[i]!.end, spoken[i]!.start),
-      })),
-    );
-  }
-  const start = spoken[0]?.start ?? 0;
-  const end = spoken[spoken.length - 1]?.end ?? Math.max(start, tokens.length * 0.4);
-  return even(tokens, start, end);
+/** Compare text loosely: case, curly quotes and dash variants don't matter. */
+function fold(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[‘’‛`´]/g, "'")
+    .replace(/[“”„]/g, '"')
+    .replace(/[–—−]/g, "-");
 }
 
-/** Collapse character-level alignment onto the whitespace tokens of `text`. */
-export function wordsFromCharacters(text: string, characters: string[], starts: number[], ends: number[]): Word[] {
+/**
+ * Map per-character timings onto the whitespace tokens of `text`. Each token is
+ * found in order in the character stream; a token that can't be found (the
+ * provider spelled out a number, say) is interpolated between its matched
+ * neighbours instead of discarding every other timing.
+ */
+export function matchCharacters(text: string, characters: string[], starts: number[], ends: number[]): WordMatch {
   const tokens = tokensOf(text);
-  if (!tokens.length) return [];
-  if (!characters.length) return even(tokens, 0, tokens.length * 0.4);
-  const joined = characters.join("");
+  if (!tokens.length) return { words: [], matchedRatio: 1 };
+
+  // Folded stream plus, for each position in it, the index of the source character.
+  let joined = "";
+  const source: number[] = [];
+  characters.forEach((c, i) => {
+    const f = fold(c);
+    joined += f;
+    for (let k = 0; k < f.length; k++) source.push(i);
+  });
+
   let cursor = 0;
-  const out: Word[] = [];
-  for (const token of tokens) {
-    const idx = joined.indexOf(token, cursor);
-    if (idx < 0) {
-      const start = starts[0] ?? 0;
-      const end = ends[ends.length - 1] ?? start + tokens.length * 0.4;
-      return even(tokens, start, end);
-    }
-    const endIdx = Math.min(ends.length - 1, idx + token.length - 1);
-    const start = starts[idx] ?? 0;
-    const end = ends[endIdx] ?? start;
-    out.push({ text: token, start, end: Math.max(end, start) });
-    cursor = idx + token.length;
-  }
-  return monotonic(out);
+  const timed: (Word | undefined)[] = tokens.map((token) => {
+    const t = fold(token);
+    const idx = joined.indexOf(t, cursor);
+    if (idx < 0 || idx - cursor > MAX_SKIP) return undefined;
+    cursor = idx + t.length;
+    const first = source[idx]!;
+    const last = source[idx + t.length - 1]!;
+    const start = starts[first] ?? 0;
+    return { text: token, start, end: Math.max(ends[last] ?? start, start) };
+  });
+
+  const matched = timed.filter(Boolean).length;
+  const streamEnd = ends[ends.length - 1] ?? 0;
+  return { words: monotonic(fillGaps(tokens, timed, streamEnd)), matchedRatio: matched / tokens.length };
 }
 
-function even(tokens: string[], start: number, end: number): Word[] {
-  const span = Math.max(end - start, tokens.length * 0.01);
-  const per = span / tokens.length;
-  return monotonic(tokens.map((token, i) => ({ text: token, start: start + i * per, end: start + (i + 1) * per })));
+/** Back-compat wrapper: words only. */
+export function wordsFromCharacters(text: string, characters: string[], starts: number[], ends: number[]): Word[] {
+  return matchCharacters(text, characters, starts, ends).words;
+}
+
+/**
+ * Map word-level timings (e.g. forced alignment output) onto the tokens of `text`.
+ * The provider may split or normalise words differently, so match on characters
+ * rather than assuming the word counts line up. Matching is sequential and needs no
+ * separators, so pieces like "It" + "'s" still match "It's".
+ */
+export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
+  const characters: string[] = [];
+  const starts: number[] = [];
+  const ends: number[] = [];
+  for (const w of timed) {
+    const chars = [...w.text];
+    if (!chars.length) continue;
+    const span = Math.max(w.end - w.start, 0);
+    chars.forEach((c, k) => {
+      characters.push(c);
+      starts.push(w.start + (span * k) / chars.length);
+      ends.push(w.start + (span * (k + 1)) / chars.length);
+    });
+  }
+  return matchCharacters(text, characters, starts, ends).words;
+}
+
+/** Spread each run of unmatched tokens evenly between the matched words around it. */
+function fillGaps(tokens: string[], timed: (Word | undefined)[], streamEnd: number): Word[] {
+  const out: Word[] = [];
+  let i = 0;
+  while (i < tokens.length) {
+    const known = timed[i];
+    if (known) {
+      out.push(known);
+      i++;
+      continue;
+    }
+    let j = i;
+    while (j < tokens.length && !timed[j]) j++;
+    const count = j - i;
+    const prevEnd = out.length ? out[out.length - 1]!.end : undefined;
+    const nextStart = timed[j]?.start;
+    let from: number;
+    let to: number;
+    if (prevEnd !== undefined && nextStart !== undefined) [from, to] = [prevEnd, Math.max(nextStart, prevEnd)];
+    else if (nextStart !== undefined) [from, to] = [Math.max(0, nextStart - count * FALLBACK_WORD_SEC), nextStart];
+    else if (prevEnd !== undefined) [from, to] = [prevEnd, Math.max(streamEnd, prevEnd + count * FALLBACK_WORD_SEC)];
+    else [from, to] = [0, Math.max(streamEnd, count * FALLBACK_WORD_SEC)];
+    const per = (to - from) / count;
+    for (let k = 0; k < count; k++) {
+      out.push({ text: tokens[i + k]!, start: from + k * per, end: from + (k + 1) * per });
+    }
+    i = j;
+  }
+  return out;
 }
 
 function monotonic(words: Word[]): Word[] {
