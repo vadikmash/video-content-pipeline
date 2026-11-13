@@ -23,14 +23,12 @@ export function tokensOf(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
 
-/** Compare text loosely: case, curly quotes and dash variants don't matter. */
+/** Compare text loosely: case and punctuation don't matter (aligners may drop it). */
 function fold(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[‘’‛`´]/g, "'")
-    .replace(/[“”„]/g, '"')
-    .replace(/[–—−]/g, "-");
+  return s.toLowerCase().replace(/[\p{P}\p{S}]/gu, "");
 }
+
+const WORD_CHAR = /[\p{L}\p{N}]/u;
 
 /**
  * Map per-character timings onto the whitespace tokens of `text`. Each token is
@@ -38,7 +36,14 @@ function fold(s: string): string {
  * provider spelled out a number, say) is interpolated between its matched
  * neighbours instead of discarding every other timing.
  */
-export function matchCharacters(text: string, characters: string[], starts: number[], ends: number[]): WordMatch {
+export function matchCharacters(
+  text: string,
+  characters: string[],
+  starts: number[],
+  ends: number[],
+  /** Source characters that begin a word even with no separator before them (aligner words). */
+  wordStarts?: ReadonlySet<number>,
+): WordMatch {
   const tokens = tokensOf(text);
   if (!tokens.length) return { words: [], matchedRatio: 1 };
 
@@ -51,11 +56,22 @@ export function matchCharacters(text: string, characters: string[], starts: numb
     for (let k = 0; k < f.length; k++) source.push(i);
   });
 
+  // A token may only match where a word begins, so "we" can't lock onto "t-we-nty".
+  const atWordStart = (idx: number) =>
+    idx === 0 || !WORD_CHAR.test(joined[idx - 1]!) || (wordStarts?.has(source[idx]!) && source[idx - 1] !== source[idx]);
+  const find = (t: string, from: number) => {
+    for (let idx = joined.indexOf(t, from); idx >= 0 && idx - from <= MAX_SKIP; idx = joined.indexOf(t, idx + 1)) {
+      if (atWordStart(idx)) return idx;
+    }
+    return -1;
+  };
+
   let cursor = 0;
   const timed: (Word | undefined)[] = tokens.map((token) => {
     const t = fold(token);
-    const idx = joined.indexOf(t, cursor);
-    if (idx < 0 || idx - cursor > MAX_SKIP) return undefined;
+    if (!t) return undefined;
+    const idx = find(t, cursor);
+    if (idx < 0) return undefined;
     cursor = idx + t.length;
     const first = source[idx]!;
     const last = source[idx + t.length - 1]!;
@@ -83,9 +99,11 @@ export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
   const characters: string[] = [];
   const starts: number[] = [];
   const ends: number[] = [];
+  const wordStarts = new Set<number>();
   for (const w of timed) {
     const chars = [...w.text];
     if (!chars.length) continue;
+    wordStarts.add(characters.length);
     const span = Math.max(w.end - w.start, 0);
     chars.forEach((c, k) => {
       characters.push(c);
@@ -93,7 +111,7 @@ export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
       ends.push(w.start + (span * (k + 1)) / chars.length);
     });
   }
-  return matchCharacters(text, characters, starts, ends).words;
+  return matchCharacters(text, characters, starts, ends, wordStarts).words;
 }
 
 /** Spread each run of unmatched tokens evenly between the matched words around it. */

@@ -119,3 +119,31 @@ describe("wordsFromAlignment with differently split words", () => {
     ]);
   });
 });
+
+describe("matchCharacters matches whole words only", () => {
+  it("does not match a short word inside a spelled-out number", () => {
+    const text = "It grew in 2026 we think.";
+    const spoken = "It grew in twenty twenty-six we think.";
+    const s = stream(spoken);
+    const m = matchCharacters(text, s.characters, s.starts, s.ends);
+    const we = m.words.find((w) => w.text === "we")!;
+    expect(we.start).toBeCloseTo(spoken.indexOf(" we ") * 0.05 + 0.05, 2);
+  });
+});
+
+describe("wordsFromAlignment without punctuation", () => {
+  it("matches tokens whose punctuation the aligner dropped", () => {
+    const words = wordsFromAlignment("Hello, world. It's fine.", [
+      { text: "Hello", start: 0, end: 0.5 },
+      { text: "world", start: 0.6, end: 1.0 },
+      { text: "Its", start: 1.5, end: 1.8 },
+      { text: "fine", start: 1.9, end: 2.3 },
+    ]);
+    expect(words.map((w) => [w.text, w.start])).toEqual([
+      ["Hello,", 0],
+      ["world.", 0.6],
+      ["It's", 1.5],
+      ["fine.", 1.9],
+    ]);
+  });
+});
