@@ -45,6 +45,21 @@ export const upload = defineStage({
     const assets = await store.getAssets(assetIds);
     const meta = buildUploadMeta(idea, brief, board, assets);
 
+    // Idempotent per render: a retry after the row was saved returns it instead of uploading again.
+    // (The provider covers the earlier window, where the remote upload finished but this row was not saved.)
+    const existing = await store.latestUpload(project.id);
+    if (existing?.renderId === render.id && existing.provider === ports.Publisher.id) {
+      return {
+        artifactId: existing.id,
+        summary: {
+          remoteId: existing.remoteId,
+          privacy: existing.privacy,
+          containsSyntheticMedia: existing.containsSyntheticMedia,
+          reused: true,
+        },
+      };
+    }
+
     await limits.acquire(ports.Publisher.id);
     // Always private first; publishing is its own gated stage.
     const result = await ports.Publisher.upload(render, meta, "private");

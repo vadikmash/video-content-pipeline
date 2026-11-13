@@ -7,7 +7,8 @@ const inngest = new Inngest({
   ...(process.env.INNGEST_BASE_URL ? { baseUrl: process.env.INNGEST_BASE_URL } : {}),
 });
 
-export async function sendEvent<N extends EventName>(name: N, data: EventData<N>): Promise<void> {
+/** `id` makes the send idempotent: Inngest drops a second event with the same id (24h window). */
+export async function sendEvent<N extends EventName>(name: N, data: EventData<N>, opts: { id?: string } = {}): Promise<void> {
   EventSchemas[name].parse(data);
-  await inngest.send({ name, data });
+  await inngest.send({ name, data, ...(opts.id ? { id: opts.id } : {}) });
 }

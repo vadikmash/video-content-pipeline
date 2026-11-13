@@ -17,6 +17,8 @@
     "db:generate": "pnpm --filter @vcp/db generate",
     "db:migrate": "pnpm --filter @vcp/db migrate",
     "db:seed": "pnpm --filter @vcp/db seed",
+    "providers:bind": "pnpm --filter @vcp/db bind",
+    "youtube:auth": "pnpm --filter @vcp/provider-publish-youtube auth",
     "db:reset": "docker compose down -v && pnpm db:up && sleep 3 && pnpm db:migrate && pnpm db:seed",
     "browser:ensure": "pnpm --filter @vcp/pipeline exec remotion browser ensure"
   },

@@ -1,14 +1,17 @@
 "use server";
 
-import { Script, newId, scriptText } from "@vcp/core";
+import { Script, isStageName, newId, retryTrigger, scriptText } from "@vcp/core";
 import {
   getProject,
+  getStage,
   insertScript,
   latestRender,
   latestScript,
   latestUpload,
   logEvent,
   nextScriptVersion,
+  updateProject,
+  upsertStage,
 } from "@vcp/db";
 import { revalidatePath } from "next/cache";
 import { sendEvent } from "@/lib/inngest";
@@ -92,5 +95,46 @@ export async function rejectProject(projectId: string, formData: FormData): Prom
   const stage = project.currentStage ?? "unknown";
   await logEvent(projectId, "project.rejected.requested", { stage, reason });
   await sendEvent("project.rejected", { projectId, stage, reason });
+  revalidatePath(`/projects/${projectId}`);
+}
+
+/** Re-run the stage a failed project stopped at, by re-sending the event that triggers it. */
+export async function retryStage(projectId: string): Promise<void> {
+  const project = await requireProject(projectId);
+  const stage = project.currentStage;
+  if (project.status !== "failed" || !stage || !isStageName(stage)) {
+    throw new Error("Only a failed project can be retried");
+  }
+  const row = await getStage(projectId, stage);
+  if (row?.status !== "failed") throw new Error(`stage ${stage} is not failed`);
+
+  await upsertStage(projectId, stage, { status: "pending", error: null, finishedAt: null });
+  await updateProject(projectId, { status: "active", currentStage: stage });
+  await logEvent(projectId, "stage.retry", { stage, previousError: row.error ?? null, previousAttempt: row.attempt ?? null });
+
+  const trigger = retryTrigger(stage);
+  // One id per failure being retried: if this send times out after Inngest accepted it and the
+  // user clicks Retry again, the second event is dropped instead of starting a second run.
+  const id = `retry:${projectId}:${stage}:${row.finishedAt ?? row.attempt ?? "0"}`;
+  try {
+    if (trigger.event === "idea.selected") await sendEvent("idea.selected", { projectId, ideaId: project.ideaId }, { id });
+    else await sendEvent("stage.completed", { projectId, stage: trigger.after }, { id });
+  } catch (err) {
+    // The send may have failed only on our side (a timeout after Inngest accepted the event).
+    // If a run has already picked the stage up, it owns the state now: leave it alone.
+    const now = await getStage(projectId, stage);
+    if (now?.status !== "pending") throw err;
+    // Nothing will run: put the failed state back so the Retry button stays available.
+    await upsertStage(projectId, stage, {
+      status: "failed",
+      error: row.error ?? "retry could not be queued",
+      finishedAt: row.finishedAt ? new Date(row.finishedAt) : new Date(),
+    });
+    await updateProject(projectId, { status: "failed", currentStage: stage });
+    await logEvent(projectId, "stage.retry.failed", { stage, error: err instanceof Error ? err.message : String(err) }).catch(
+      () => {},
+    );
+    throw err;
+  }
   revalidatePath(`/projects/${projectId}`);
 }

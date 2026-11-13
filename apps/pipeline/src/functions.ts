@@ -1,12 +1,10 @@
 import { GATES, GATE_EVENTS, STAGES, isGate, previousStage, type GateName, type StageName } from "@vcp/core";
 import { insertIdea, listIdeas, loadPipelineConfig, logEvent } from "@vcp/db";
-import { Deferred } from "@vcp/limits";
 import { registry } from "@vcp/providers";
 import { runDiscovery } from "@vcp/providers/discover";
-import { NonRetriableError, RetryAfterError } from "inngest";
+import { mapError } from "./errors";
 import { events, inngest } from "./inngest";
 import {
-  StageError,
   WORK_STAGES,
   approveGate,
   failProject,
@@ -29,12 +27,6 @@ function triggerAfter(stage: StageName) {
 }
 
 const cancelOnReject = [{ event: events.projectRejected, match: "data.projectId" }];
-
-function mapError(err: unknown): never {
-  if (err instanceof Deferred) throw new RetryAfterError(err.message, err.retryAfterMs);
-  if (err instanceof StageError && !err.retriable) throw new NonRetriableError(err.message, { cause: err });
-  throw err;
-}
 
 // ---------------------------------------------------------------------------
 // Work stages

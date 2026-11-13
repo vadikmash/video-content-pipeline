@@ -9,6 +9,9 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { captionChunks, captionFontSize, chunkAt } from "./captions";
+import { CAPTION_FONT } from "./fonts";
+import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
 
 const BG = "#0f172a";
@@ -20,9 +23,19 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
   const { fps } = useVideoConfig();
   const toFrames = (s: number) => Math.max(0, Math.round(s * fps));
   const closingStart = Math.max(0, props.durationSec - 2.5);
+  const frame = useCurrentFrame();
+  const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
+      {props.musicUrl ? (
+        <Audio
+          src={props.musicUrl}
+          loop
+          // Absolute composition time: with loop, the volume callback's frame restarts every iteration.
+          volume={musicVolume(frame / fps, spans, props.durationSec)}
+        />
+      ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
       {props.scenes.map((scene) => (
@@ -84,24 +97,23 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  // kinetic typography (default)
-  const opacity = interpolate(frame, [0, 8], [0, 1], { extrapolateRight: "clamp" });
-  const y = interpolate(frame, [0, 8], [40, 0], { extrapolateRight: "clamp" });
+  // Template v1 has no footage for "type" beats: the captions carry the words, the backdrop stays quiet.
+  return <Backdrop />;
+};
+
+/** Slow drifting gradient so a type-only beat is not a flat colour. */
+const Backdrop: React.FC = () => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const t = frame / fps;
+  const x = 50 + 18 * Math.sin(t / 7);
+  const y = 42 + 12 * Math.cos(t / 9);
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: 96 }}>
-      <div
-        style={{
-          fontSize: 72,
-          fontWeight: 800,
-          lineHeight: 1.15,
-          textAlign: "center",
-          opacity,
-          transform: `translateY(${y}px)`,
-        }}
-      >
-        {scene.text}
-      </div>
-    </AbsoluteFill>
+    <AbsoluteFill
+      style={{
+        background: `radial-gradient(circle at ${x}% ${y}%, #1e3a5f 0%, ${BG} 62%)`,
+      }}
+    />
   );
 };
 
@@ -132,36 +144,33 @@ const TitleCard: React.FC<{ title: string }> = ({ title }) => {
   );
 };
 
+/**
+ * Big centred captions, one word at a time as it is said: white Impact with a
+ * black outline. No highlight, no motion; each word replaces the last.
+ */
 const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const t = frame / fps;
-  const idx = words.findIndex((w) => t >= w.start && t < w.end);
-  if (idx < 0) return null;
-  const windowStart = Math.max(0, idx - 3);
-  const slice = words.slice(windowStart, windowStart + 7);
+  const { fps, width } = useVideoConfig();
+  const chunks = React.useMemo(() => captionChunks(words), [words]);
+  const chunk = chunkAt(chunks, frame / fps);
+  if (!chunk) return null;
+  const fontSize = captionFontSize(chunk.text, width - 140, 170, 90);
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 360 }}>
+    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px" }}>
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: 14,
-          maxWidth: 940,
-          fontSize: 54,
-          fontWeight: 700,
-          textShadow: "0 4px 24px rgba(0,0,0,0.8)",
+          fontFamily: CAPTION_FONT,
+          fontSize,
+          lineHeight: 1.1,
+          color: "#ffffff",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          WebkitTextStroke: `${Math.round(fontSize * 0.11)}px #000000`,
+          paintOrder: "stroke fill",
+          textShadow: "0 8px 24px rgba(0,0,0,0.55)",
         }}
       >
-        {slice.map((w, i) => {
-          const active = windowStart + i === idx;
-          return (
-            <span key={`${w.start}-${i}`} style={{ color: active ? ACCENT : TEXT, opacity: active ? 1 : 0.85 }}>
-              {w.text}
-            </span>
-          );
-        })}
+        {chunk.text}
       </div>
     </AbsoluteFill>
   );
