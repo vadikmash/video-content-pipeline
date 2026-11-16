@@ -1,5 +1,4 @@
-import { StoryboardDraft, newId, nowIso, type Script, type Storyboard, type VisualIntent, type Word } from "@vcp/core";
-import { limits } from "@vcp/limits";
+import { newId, nowIso, type Script, type Storyboard, type VisualIntent, type Word } from "@vcp/core";
 import { StageError, defineStage } from "./context";
 
 export interface BeatTiming {
@@ -37,6 +36,9 @@ export function beatTimings(script: Script, words: Word[]): BeatTiming[] {
   return out;
 }
 
+/**
+ * Template v1 is kinetic type only. The LLM storyboard planner (stock, stills, clips) is M2.
+ */
 export const storyboard = defineStage({
   name: "storyboard",
   async input(ctx) {
@@ -45,32 +47,28 @@ export const storyboard = defineStage({
     return { narrationId: narration.id, scriptId: narration.scriptId };
   },
   async run(ctx, input) {
-    const { ports, store, project } = ctx;
+    const { store, project } = ctx;
     const narration = await store.latestNarration(project.id);
     const script = await store.getScript(input.scriptId);
     if (!narration || !script) throw new StageError("storyboard: narration or script missing", false);
 
     const timings = beatTimings(script, narration.words);
-
-    await limits.acquire(ports.TextModel.id);
-    const draft = await ports.TextModel.generate(StoryboardDraft, {
-      kind: "storyboard",
-      system: "Map each beat to a visual intent. Keep the given timings. Prefer stock, then still, then clip.",
-      user: script.beats.map((b) => `${b.id}: ${b.text}`).join("\n"),
-      context: { beatTimings: timings, durationSec: narration.durationSec },
-    });
-
     const board: Storyboard = {
       id: newId(),
       projectId: project.id,
       narrationId: narration.id,
       version: await store.nextStoryboardVersion(project.id),
-      scenes: draft.scenes,
+      scenes: timings.map((t) => ({
+        beatId: t.beatId,
+        start: t.start,
+        end: t.end,
+        visual: { kind: "type" as const },
+      })),
       containsSyntheticMedia: false,
-      provider: ports.TextModel.id,
+      provider: "template-v1",
       createdAt: nowIso(),
     };
     await store.insertStoryboard(board);
-    return { artifactId: board.id, summary: { version: board.version, scenes: board.scenes.length } };
+    return { artifactId: board.id, summary: { version: board.version, scenes: board.scenes.length, visuals: "type" } };
   },
 });

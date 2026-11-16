@@ -3,7 +3,7 @@
  * port must do, and runs it against every registered provider. Fakes always
  * run; real providers run only when REAL_PROVIDERS=1 (they need keys).
  */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Asset, NewIdea, Render, Upload, Word, type BlobStore, type PortName, type Storyboard } from "@vcp/core";
@@ -14,6 +14,7 @@ import { createRegistry } from "./index";
 
 const registry = createRegistry();
 const includeReal = process.env.REAL_PROVIDERS === "1";
+const includeYoutube = process.env.YOUTUBE_CONTRACT === "1";
 
 let dir: string;
 let blob: BlobStore;
@@ -27,8 +28,14 @@ function providersFor<P extends PortName>(port: P) {
   return registry
     .manifestsFor(port)
     // Real providers need keys; local-only ones (no network) always run.
-    .filter((m) => m.fake || includeReal || m.id === "blob-local" || m.id === "source-manual")
-    .map((m) => ({ id: m.id, make: () => registry.instantiate(port, m.id, {}, blob) }));
+    // YouTube insert spends a daily quota unit, so it stays behind its own flag.
+    .filter((m) => {
+      if (m.id === "publish-youtube") return includeYoutube;
+      if (m.fake || m.id === "blob-local" || m.id === "source-manual") return true;
+      // A real provider without its API key cannot run; skip it instead of failing.
+      return includeReal && m.env.filter((key) => key.endsWith("_API_KEY")).every((key) => process.env[key]);
+    })
+    .map((m) => ({ id: m.id, manifest: m, make: () => registry.instantiate(port, m.id, {}, blob) }));
 }
 
 describe("BlobStore", () => {
@@ -59,7 +66,13 @@ describe("IdeaSource", () => {
 });
 
 describe("TextModel", () => {
-  const Out = z.object({ summary: z.string(), angle: z.string(), evidence: z.array(z.any()), sources: z.array(z.string()) });
+  // Concrete item schema: OpenAI strict json_schema rejects untyped (z.any) items.
+  const Out = z.object({
+    summary: z.string(),
+    angle: z.string(),
+    evidence: z.array(z.object({ url: z.string(), quote: z.string() })),
+    sources: z.array(z.string()),
+  });
   for (const p of providersFor("TextModel")) {
     it(`${p.id}: generate returns data matching the schema`, async () => {
       const out = await p.make().generate(Out, {
@@ -70,6 +83,8 @@ describe("TextModel", () => {
       expect(out.summary.length).toBeGreaterThan(0);
       expect(out.sources.length).toBeGreaterThan(0);
     });
+    // A real model can satisfy { mustBeNumber: number }. Only fakes are forced to miss.
+    if (!p.manifest.fake) continue;
     it(`${p.id}: throws when output cannot satisfy the schema`, async () => {
       const Impossible = z.object({ mustBeNumber: z.number() });
       await expect(p.make().generate(Impossible, { kind: "other", user: "x" })).rejects.toThrow();
@@ -92,7 +107,8 @@ describe("WebResearch", () => {
 describe("Speech", () => {
   for (const p of providersFor("Speech")) {
     it(`${p.id}: synthesize returns audio bytes and monotonic words when present`, async () => {
-      const out = await p.make().synthesize("one two three four", { voiceId: "default" });
+      const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "default";
+      const out = await p.make().synthesize("one two three four", { voiceId });
       expect(out.audio.byteLength).toBeGreaterThan(44);
       expect(out.contentType).toMatch(/^audio\//);
       if (out.words) {
@@ -105,13 +121,23 @@ describe("Speech", () => {
 
 describe("Aligner", () => {
   for (const p of providersFor("Aligner")) {
-    it(`${p.id}: align returns one word per token, monotonic`, async () => {
-      const tts = registry.instantiate("Speech", "fake-tts", {}, blob);
-      const { audio } = await tts.synthesize("alpha beta gamma", { voiceId: "default" });
-      const words = await p.make().align(audio, "alpha beta gamma");
-      expect(words.map((w) => w.text)).toEqual(["alpha", "beta", "gamma"]);
-      assertMonotonic(words);
-    });
+    if (p.manifest.fake) {
+      it(`${p.id}: align returns one word per token, monotonic`, async () => {
+        const tts = registry.instantiate("Speech", "fake-tts", {}, blob);
+        const { audio } = await tts.synthesize("alpha beta gamma", { voiceId: "default" });
+        const words = await p.make().align(audio, "alpha beta gamma");
+        expect(words.map((w) => w.text)).toEqual(["alpha", "beta", "gamma"]);
+        assertMonotonic(words);
+      });
+    } else if (includeReal && p.id === "align-elevenlabs") {
+      it(`${p.id}: aligns audio synthesized by tts-elevenlabs`, async () => {
+        const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "default";
+        const synth = await registry.instantiate("Speech", "tts-elevenlabs", {}, blob).synthesize("alpha beta gamma", { voiceId });
+        const words = await p.make().align(synth.audio, "alpha beta gamma");
+        expect(words.map((w) => w.text)).toEqual(["alpha", "beta", "gamma"]);
+        assertMonotonic(words);
+      });
+    }
   }
 });
 
@@ -201,13 +227,37 @@ describe("Publisher", () => {
         provider: "fake-render",
         createdAt: new Date().toISOString(),
       });
-      const meta = { title: "t", description: "d", tags: [], containsSyntheticMedia: false };
-      const up = await pub.upload(render, meta, "private");
+      let bytes = new Uint8Array([0, 0, 0, 24]);
+      if (p.id === "publish-youtube") {
+        const file = process.env.YOUTUBE_CONTRACT_FILE;
+        if (!file) throw new Error("YOUTUBE_CONTRACT_FILE must point at a short mp4");
+        bytes = new Uint8Array(readFileSync(file));
+      }
+      const blobRef = await blob.put(`contracts/${p.id}-upload.mp4`, bytes, "video/mp4");
+      const meta = { title: "vcp contract test", description: "Automated contract test upload.", tags: [], containsSyntheticMedia: false };
+      const up = await pub.upload({ ...render, blob: blobRef }, meta, "private");
       expect(() => Upload.parse(up)).not.toThrow();
       expect(up.privacy).toBe("private");
-      const pubd = await pub.setPrivacy(up, "public");
-      expect(pubd.privacy).toBe("public");
-      expect((await pub.status(pubd)).privacy).toBe("public");
+      // A real channel never gets a public test video: exercise the privacy change with
+      // "unlisted" on YouTube, and always put it back to private afterwards.
+      const target = p.id === "publish-youtube" ? "unlisted" : "public";
+      let passed = false;
+      try {
+        const changed = await pub.setPrivacy(up, target);
+        expect(changed.privacy).toBe(target);
+        expect((await pub.status(changed)).privacy).toBe(target);
+        passed = true;
+      } finally {
+        if (p.id === "publish-youtube") {
+          try {
+            await pub.setPrivacy(up, "private");
+          } catch (err) {
+            console.error(`could not restore ${up.remoteId} to private`, err);
+            // Surface a failed restore, but never mask the assertion that failed above.
+            if (passed) throw err;
+          }
+        }
+      }
     });
   }
 });

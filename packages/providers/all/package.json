@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@vcp/core": "workspace:*",
+    "@vcp/provider-align-elevenlabs": "workspace:*",
     "@vcp/provider-blob-local": "workspace:*",
     "@vcp/provider-fake-align": "workspace:*",
     "@vcp/provider-fake-clip": "workspace:*",
@@ -24,8 +25,12 @@
     "@vcp/provider-fake-source": "workspace:*",
     "@vcp/provider-fake-stock": "workspace:*",
     "@vcp/provider-fake-tts": "workspace:*",
+    "@vcp/provider-llm-anthropic": "workspace:*",
+    "@vcp/provider-llm-openai": "workspace:*",
+    "@vcp/provider-publish-youtube": "workspace:*",
     "@vcp/provider-render-remotion": "workspace:*",
     "@vcp/provider-source-manual": "workspace:*",
+    "@vcp/provider-tts-elevenlabs": "workspace:*",
     "zod": "^4.6.7"
   },
   "devDependencies": {

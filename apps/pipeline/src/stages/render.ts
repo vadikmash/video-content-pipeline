@@ -2,7 +2,7 @@ import type { AssetBundle, RenderInput } from "@vcp/core";
 import { limits } from "@vcp/limits";
 import { StageError, defineStage } from "./context";
 
-export const TEMPLATE = { id: "fact-short", version: "0.1.0" } as const;
+export const TEMPLATE = { id: "fact-short", version: "1.0.0" } as const;
 
 export const render = defineStage({
   name: "render",

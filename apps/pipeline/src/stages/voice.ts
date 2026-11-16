@@ -1,6 +1,7 @@
 import { newId, nowIso, scriptText, type Narration } from "@vcp/core";
 import { limits } from "@vcp/limits";
-import { StageError, defineStage, voiceOptions } from "./context";
+import { DEFAULT_TIGHTEN, tightenPauses } from "../audio/pauses";
+import { StageError, defineStage, isFakeProvider, voiceOptions } from "./context";
 
 const EXT: Record<string, string> = { "audio/wav": "wav", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/aac": "aac" };
 
@@ -25,9 +26,34 @@ export const voice = defineStage({
       alignerProvider = ports.Aligner.id;
     }
 
+    // Shorten long pauses. Fake TTS is silence, so there is nothing to tighten there.
+    let audio = synth.audio;
+    let contentType = synth.contentType;
+    let tightened: { removedSec: number; pauses: number; error?: string } = { removedSec: 0, pauses: 0 };
+    const maxPauseSec = pauseLimit(input.voice.options);
+    if (maxPauseSec !== null && !isFakeProvider(ctx, "Speech")) {
+      try {
+        const out = await tightenPauses(audio, words, { ...DEFAULT_TIGHTEN, maxPauseSec });
+        audio = out.audio;
+        contentType = out.contentType ?? contentType;
+        words = out.words;
+        tightened = { removedSec: out.removedSec, pauses: out.pauses };
+      } catch (err) {
+        // Keep the paid narration rather than fail the stage and synthesize it again on retry,
+        // but make the skipped step visible in the stage summary and the event log.
+        const message = err instanceof Error ? err.message : String(err);
+        tightened = { ...tightened, error: message.slice(0, 300) };
+        console.warn(`voice: pause tightening skipped (${message})`);
+        // Best effort: a failed log write must not fail the stage and re-bill the narration.
+        await store
+          .logEvent(project.id, "voice.tighten.failed", { error: tightened.error })
+          .catch((e: unknown) => console.warn("voice: could not log tightening failure", e));
+      }
+    }
+
     const id = newId();
-    const ext = EXT[synth.contentType] ?? "bin";
-    const audioBlob = await ports.BlobStore.put(`projects/${project.id}/narration/${id}.${ext}`, synth.audio, synth.contentType);
+    const ext = EXT[contentType] ?? "bin";
+    const audioBlob = await ports.BlobStore.put(`projects/${project.id}/narration/${id}.${ext}`, audio, contentType);
     const durationSec = words.length ? words[words.length - 1]!.end : 0;
 
     const narration: Narration = {
@@ -43,6 +69,23 @@ export const voice = defineStage({
       createdAt: nowIso(),
     };
     await store.insertNarration(narration);
-    return { artifactId: id, summary: { durationSec, words: words.length, aligner: alignerProvider ?? "from-speech" } };
+    return {
+      artifactId: id,
+      summary: {
+        durationSec,
+        words: words.length,
+        aligner: alignerProvider ?? "from-speech",
+        pausesShortened: tightened.pauses,
+        pauseSecRemoved: tightened.removedSec,
+        ...(tightened.error ? { pauseTighteningError: tightened.error } : {}),
+      },
+    };
   },
 });
+
+/** Speech options.maxPauseSec: a number of seconds, or false to keep pauses as synthesized. */
+function pauseLimit(options: Record<string, unknown> | undefined): number | null {
+  const v = options?.maxPauseSec;
+  if (v === false) return null;
+  return typeof v === "number" && v > 0 ? v : DEFAULT_TIGHTEN.maxPauseSec;
+}

@@ -68,9 +68,27 @@ export function getBundle(): Promise<string> {
 // Props mapping
 // ---------------------------------------------------------------------------
 
+/** Music bed the user drops in. Gitignored; a missing file renders without music. */
+export function resolveMusicBed(): string | undefined {
+  const candidate = path.join(repoRoot(), "apps/renderer/public/bed.mp3");
+  return existsSync(candidate) ? candidate : undefined;
+}
+
+function repoRoot(start = process.cwd()): string {
+  let dir = start;
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(path.join(dir, "pnpm-workspace.yaml"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return start;
+}
+
 export async function toFactShortProps(
   input: RenderInput,
   urlFor: (ref: BlobRef) => Promise<string>,
+  musicUrl?: string,
 ): Promise<FactShortProps> {
   const scenes = await Promise.all(
     input.storyboard.scenes.map(async (scene) => {
@@ -97,6 +115,7 @@ export async function toFactShortProps(
     scenes,
     sources: input.sources ?? sources,
     containsSyntheticMedia: input.storyboard.containsSyntheticMedia,
+    musicUrl,
   };
 }
 
@@ -120,7 +139,11 @@ export function createRemotionRenderer(blob: BlobStore, options: { concurrency?:
       // Remotion caches its headless Chrome under <cwd>/node_modules/.remotion; allow pinning one copy.
       const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || null;
       try {
-        const inputProps = await toFactShortProps(input, urlFor);
+        const bed = resolveMusicBed();
+        const musicUrl = bed
+          ? await urlFor(await blob.put("templates/fact-short/bed.mp3", new Uint8Array(await readFile(bed)), "audio/mpeg"))
+          : undefined;
+        const inputProps = await toFactShortProps(input, urlFor, musicUrl);
         const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps, browserExecutable });
 
         const outVideo = path.join(tmp, "out.mp4");

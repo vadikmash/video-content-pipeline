@@ -23,7 +23,7 @@ export const write = defineStage({
     const draft = await ports.TextModel.generate(ScriptDraft, {
       kind: "script",
       system:
-        "Write a 45-60 second vertical short. Hook in the first sentence. Every factual sentence must map to a claim with a source URL from the brief.",
+        "Write a 45-60 second vertical short. Hook in the first sentence. Every factual sentence must map to a claim. Copy claim sourceUrl values from the brief and the idea evidence. Do not invent URLs.",
       user: `Brief: ${brief.summary}\nAngle: ${brief.angle}`,
       context: { idea, brief },
     });

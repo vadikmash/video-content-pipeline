@@ -13,11 +13,13 @@ export interface NoticeProps {
   role?: string;
   /** Dismissing navigates here, e.g. the same URL without the params that raised the notice. */
   dismissHref?: string;
+  /** Control on the right, e.g. a retry form. */
+  action?: ReactNode;
   className?: string;
   children?: ReactNode;
 }
 
-export function Notice({ tone = "neutral", title, icon, role = "status", dismissHref, className, children }: NoticeProps) {
+export function Notice({ tone = "neutral", title, icon, role = "status", dismissHref, action, className, children }: NoticeProps) {
   return (
     <div className={cx("vcp-notice", `vcp-tone-${tone}`, className)} role={role}>
       <Icon name={icon ?? TONE_ICON[tone] ?? "dot"} size={16} />
@@ -25,6 +27,7 @@ export function Notice({ tone = "neutral", title, icon, role = "status", dismiss
         {title ? <strong>{title}</strong> : null}
         {children ? <span>{children}</span> : null}
       </div>
+      {action ? <div className="vcp-notice-action">{action}</div> : null}
       {dismissHref ? (
         <Link className="vcp-notice-x" href={dismissHref} aria-label="Dismiss" scroll={false}>
           <Icon name="x" size={14} />

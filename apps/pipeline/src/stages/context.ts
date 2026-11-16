@@ -16,6 +16,7 @@ export interface StageCtx {
   config: PipelineConfig;
   ports: ResolvedPorts;
   store: Store;
+  registry: ProviderRegistry;
 }
 
 export interface StageResult {
@@ -68,7 +69,13 @@ export async function loadStageCtx(projectId: string, store: Store, registry: Pr
   let config = await store.loadPipelineConfig(projectId);
   if (project.dryRun) config = applyDryRun(config, registry);
   const ports = registry.resolveAll(config);
-  return { project, idea, config, ports, store };
+  return { project, idea, config, ports, store, registry };
+}
+
+/** True when the provider bound to `port` is a fake (dry runs, tests, or keys not configured). */
+export function isFakeProvider(ctx: StageCtx, port: PortName): boolean {
+  const id = (ctx.ports[port] as { id: string } | undefined)?.id;
+  return ctx.registry.manifests().some((m) => m.id === id && m.fake === true);
 }
 
 export function providerIdsFor(config: PipelineConfig, ports: readonly PortName[]): string[] {

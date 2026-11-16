@@ -13,7 +13,10 @@ export const EMU_IDEA: NewIdea = {
   oneLiner: "In 1932 the Australian army deployed machine guns against 20,000 emus and withdrew.",
   whySurprising: "A modern military was outmanoeuvred by flightless birds.",
   domain: "history",
-  evidence: [{ url: "https://en.wikipedia.org/wiki/Great_Emu_War", quote: "The emu war was a nuisance wildlife management military operation." }],
+  evidence: [
+    { url: "https://en.wikipedia.org/wiki/Great_Emu_War", quote: "The emu war was a nuisance wildlife management military operation." },
+    { url: "https://www.awm.gov.au/articles/encyclopedia/emu-war", quote: "The army withdrew after the emus outlasted the operation." },
+  ],
   opinion: false,
   status: "new",
 };

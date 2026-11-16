@@ -1,0 +1,21 @@
+{
+  "name": "@vcp/provider-align-elevenlabs",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@vcp/core": "workspace:*",
+    "@vcp/provider-tts-elevenlabs": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^5.1.0"
+  }
+}

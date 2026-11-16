@@ -30,12 +30,13 @@ import { ScriptBody, scriptMeta } from "@/components/ui/ScriptView";
 import { StageRail } from "@/components/ui/StageRail";
 import { currentIndex, toStageRuns } from "@/components/ui/stages";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { StoryboardTable, type StoryboardRow } from "@/components/ui/StoryboardTable";
 import { Tag } from "@/components/ui/Tag";
 import type { MetaItem, StageRun } from "@/components/ui/types";
 import { VerticalPreview } from "@/components/ui/VerticalPreview";
 import { blobUrl } from "@/lib/blob";
-import { approveScript, approveVideo, publishUpload, rejectProject } from "./actions";
+import { approveScript, approveVideo, publishUpload, rejectProject, retryStage } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -266,7 +267,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           {project.rejectReason}
         </Notice>
       ) : failedRun ? (
-        <Notice tone="failed" title={`Failed at ${failedRun.label}`} className="vcp-detail-notice">
+        <Notice
+          tone="failed"
+          title={`Failed at ${failedRun.label}`}
+          className="vcp-detail-notice"
+          action={
+            <form action={retryStage.bind(null, project.id)}>
+              <SubmitButton size="sm" icon="restore">
+                Retry {failedRun.label.toLowerCase()}
+              </SubmitButton>
+            </form>
+          }
+        >
           {failedRun.error ?? "See the run logs in the stage rail."}
         </Notice>
       ) : null}
