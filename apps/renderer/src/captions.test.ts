@@ -76,6 +76,11 @@ describe("captionChunks", () => {
     expect(captionChunks(speak("3,8 креветка-щелкун.")).map((c) => c.text)).toEqual(["3,8", "креветка щелкун"]);
   });
 
+  it("preserves punctuation that changes the meaning of numbers", () => {
+    const chunks = captionChunks(speak("(-10) 50%, 1/2. -1,9°C 10–20 — 3,5%"));
+    expect(chunks.map(c => c.text)).toEqual(["-10", "50%", "1/2", "-1,9°C", "10–20", "3,5%"]);
+  });
+
   it("handles no words", () => {
     expect(captionChunks([])).toEqual([]);
   });

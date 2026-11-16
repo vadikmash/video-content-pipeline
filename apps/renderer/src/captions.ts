@@ -85,10 +85,10 @@ function joinText(words: readonly CaptionWord[]): string {
 }
 
 function displayText(text: string): string {
-  // Keep decimal and grouping separators between digits so 3,8 never reads as 38.
+  // Keep signs, ratios, ranges, and units when they are part of a number.
+  const punctuation = /((?<![\p{L}\p{N}])[-+−](?=\p{Nd})|(?<=\p{Nd})[.,:/⁄\p{Pd}\u066B\u066C](?=\p{Nd})|(?<=\p{Nd})[%٪‰‱])|\p{P}/gu;
   return text
-    .replace(/((?<=\p{N})[.,\u066B\u066C](?=\p{N}))|\p{P}/gu,
-      (mark, numericSeparator: string | undefined) => numericSeparator ?? (/\p{Pd}/u.test(mark) ? " " : ""))
+    .replace(punctuation, (mark, numeric: string | undefined) => numeric ?? (/\p{Pd}/u.test(mark) ? " " : ""))
     .replace(/\s+/g, " ")
     .trim();
 }
