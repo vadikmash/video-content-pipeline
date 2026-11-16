@@ -8,6 +8,6 @@ import antonUrl from "@fontsource/anton/files/anton-latin-400-normal.woff2";
  */
 export const CAPTION_FONT = "Impact, Anton, 'Arial Black', sans-serif";
 
-loadFont({ family: "Anton", url: antonUrl, weight: "400" }).catch(() => {
+export const captionFontReady = loadFont({ family: "Anton", url: antonUrl, weight: "400" }).catch(() => {
   // Rendering continues with Impact or the system fallback.
 });

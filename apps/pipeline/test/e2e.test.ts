@@ -7,6 +7,7 @@
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 import { uploadsByRemoteId } from "@vcp/provider-fake-publish";
+import { TEMPLATE_VERSION } from "@vcp/renderer/props";
 import { afterAll, describe, expect, it } from "vitest";
 import { WORK_STAGES, runStage } from "../src/stages/index";
 import { makeWorld } from "./helpers";
@@ -27,6 +28,7 @@ describe.skipIf(!enabled)("golden e2e with real Remotion render", () => {
 
     const render = await store.latestRender(project.id);
     expect(render?.provider).toBe("render-remotion");
+    expect(render?.templateVersion).toBe(TEMPLATE_VERSION);
     const mp4 = path.join(world.dir, render!.blob.key);
     expect(existsSync(mp4)).toBe(true);
     expect(statSync(mp4).size).toBeGreaterThan(10_000);

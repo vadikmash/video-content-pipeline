@@ -206,6 +206,7 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 
 - M0, week 1. Monorepo, core schemas and ports, DB, fakes for every port, Inngest locally, dashboard with Ideas inbox and manual add. A selected idea runs end to end on fakes and produces a placeholder MP4. Nothing paid is called.
 - M1, weeks 2–3. Real script with claims (one LLM provider), ElevenLabs voice and alignment, Remotion template v1 (typography, captions, music, source card), local render, YouTube upload as private, publish from the dashboard. First real video. Do five of these by hand-picking ideas before adding research.
+- Template follow-up after the M1 test videos. Try a short title-only beat with a subtle sound cue before narration starts. Keep the intro brief and shift narration, scene timing, captions, and the source card together. Review the first two seconds on a phone with sound on and muted.
 - M2, week 4. Pixabay stock, Flux stills, storyboard planner, review page with asset replacement, quota ledger and circuit breakers live.
 - M3, week 5. Discovery sources: Wikimedia, YouTube most-popular, Reddit (after app registration). Scoring and dedupe.
 - M4, week 6. Deploy. Scheduling via `publishAt`. Pull YouTube Analytics per video back into the ideas table so scoring can learn from what worked.

@@ -20,7 +20,7 @@ export interface CaptionChunk {
 }
 
 export interface ChunkOptions {
-  /** A chunk never grows past this many characters (one line at caption size). */
+  /** Maximum character count when combining multiple spoken words. */
   maxChars: number;
   /** Words this short join the next word. 0 keeps every word on its own, like the reference Shorts. */
   shortWordChars: number;
@@ -38,14 +38,15 @@ export function captionChunks(words: readonly CaptionWord[], opts: ChunkOptions 
   const groups: CaptionWord[][] = [];
   let current: CaptionWord[] = [];
 
-  words.forEach((word, i) => {
+  const spoken = words.filter((word) => /[\p{L}\p{N}]/u.test(word.text));
+  spoken.forEach((word, i) => {
     current.push(word);
-    const next = words[i + 1];
+    const next = spoken[i + 1];
     const text = joinText(current);
     const canGrow =
       next !== undefined &&
       !ENDS_SENTENCE.test(word.text) &&
-      text.length + 1 + next.text.length <= opts.maxChars &&
+      text.length + 1 + displayText(next.text).length <= opts.maxChars &&
       ((opts.shortWordChars > 0 && bare(word.text).length <= opts.shortWordChars) || next.start - current[0]!.start < opts.minSec);
     if (!canGrow) {
       groups.push(current);
@@ -68,17 +69,28 @@ export function chunkAt(chunks: readonly CaptionChunk[], t: number): CaptionChun
   return chunks.find((c) => t >= c.start && t < c.end);
 }
 
-/**
- * Font size that keeps a chunk on one line inside `width` pixels. Impact-style
- * faces are narrow, about 0.5em per character on average.
- */
-export function captionFontSize(text: string, width: number, max: number, min: number): number {
-  const fit = width / (Math.max(text.length, 1) * 0.5);
-  return Math.round(Math.max(min, Math.min(max, fit)));
+/** Scale from the widest caption as measured at maxSize. */
+export function captionFontSize(
+  chunks: readonly CaptionChunk[],
+  width: number,
+  maxSize: number,
+  measureAtMaxSize: (text: string) => number,
+): number {
+  const widest = chunks.reduce((size, chunk) => Math.max(size, measureAtMaxSize(chunk.text)), 1);
+  return Math.max(1, Math.floor(maxSize * Math.min(1, width / widest)));
 }
 
 function joinText(words: readonly CaptionWord[]): string {
-  return words.map((w) => w.text).join(" ");
+  return words.map((word) => displayText(word.text)).join(" ");
+}
+
+function displayText(text: string): string {
+  // Keep signs, ratios, ranges, and units when they are part of a number.
+  const punctuation = /((?<![\p{L}\p{N}])[-+−](?=\p{Nd})|(?<=\p{Nd})[.,:/⁄\p{Pd}\u066B\u066C](?=\p{Nd})|(?<=\p{Nd})[%٪‰‱])|\p{P}/gu;
+  return text
+    .replace(punctuation, (mark, numeric: string | undefined) => numeric ?? (/\p{Pd}/u.test(mark) ? " " : ""))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function bare(text: string): string {

@@ -34,7 +34,7 @@ describe("captionChunks", () => {
       { text: "So", start: 0.05, end: 0.3 },
     ];
     // "works." is too quick to show alone, but a sentence end still never joins the next word.
-    expect(captionChunks(words).map((c) => c.text)).toEqual(["works.", "So"]);
+    expect(captionChunks(words).map((c) => c.text)).toEqual(["works", "So"]);
   });
 
   it("joins a word said too quickly to read on its own", () => {
@@ -62,16 +62,36 @@ describe("captionChunks", () => {
     expect(chunks.flatMap((c) => c.words)).toEqual(words);
   });
 
+  it("hides standalone and attached punctuation without moving the spoken words", () => {
+    const chunks = captionChunks(speak("«Креветка» — стреляет! …"));
+    expect(chunks.map(({ text, start }) => ({ text, start }))).toEqual([
+      { text: "Креветка", start: 0 },
+      { text: "стреляет", start: 0.6 },
+    ]);
+    expect(chunkAt(chunks, 0.32)?.text).toBe("Креветка");
+    expect(captionChunks(speak("— … !"))).toEqual([]);
+  });
+
+  it("keeps the meaning of decimal numbers and hyphenated words", () => {
+    expect(captionChunks(speak("3,8 креветка-щелкун.")).map((c) => c.text)).toEqual(["3,8", "креветка щелкун"]);
+  });
+
+  it("preserves punctuation that changes the meaning of numbers", () => {
+    const chunks = captionChunks(speak("(-10) 50%, 1/2. -1,9°C 10–20 — 3,5%"));
+    expect(chunks.map(c => c.text)).toEqual(["-10", "50%", "1/2", "-1,9°C", "10–20", "3,5%"]);
+  });
+
   it("handles no words", () => {
     expect(captionChunks([])).toEqual([]);
   });
 });
 
 describe("captionFontSize", () => {
-  it("uses the max size for short words and shrinks long ones to fit", () => {
-    expect(captionFontSize("heart", 920, 150, 80)).toBe(150);
-    const long = captionFontSize("microorganisms", 920, 150, 80);
-    expect(long).toBeLessThan(150);
-    expect(long * 0.5 * "microorganisms".length).toBeLessThanOrEqual(920);
+  it("sets one size based on the widest caption, even if it has fewer characters", () => {
+    const chunks = captionChunks(speak("тонкий ШИШКИ"));
+    const widths = new Map([["тонкий", 520], ["ШИШКИ", 940]]);
+    const measure = (text: string) => widths.get(text)!;
+    expect(captionFontSize(chunks, 1000, 150, measure)).toBe(150);
+    expect(captionFontSize(chunks, 800, 150, measure)).toBe(127);
   });
 });

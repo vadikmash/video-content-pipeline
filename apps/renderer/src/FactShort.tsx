@@ -1,4 +1,5 @@
 import React from "react";
+import { flushSync } from "react-dom";
 import {
   AbsoluteFill,
   Audio,
@@ -7,10 +8,11 @@ import {
   Sequence,
   interpolate,
   useCurrentFrame,
+  useDelayRender,
   useVideoConfig,
 } from "remotion";
 import { captionChunks, captionFontSize, chunkAt } from "./captions";
-import { CAPTION_FONT } from "./fonts";
+import { CAPTION_FONT, captionFontReady } from "./fonts";
 import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
 
@@ -28,6 +30,8 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
+      <Backdrop />
+
       {props.musicUrl ? (
         <Audio
           src={props.musicUrl}
@@ -38,7 +42,7 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
       ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
-      {props.scenes.map((scene) => (
+      {props.scenes.filter((scene) => scene.kind !== "type").map((scene) => (
         <Sequence
           key={scene.beatId}
           from={toFrames(scene.start)}
@@ -97,11 +101,10 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  // Template v1 has no footage for "type" beats: the captions carry the words, the backdrop stays quiet.
-  return <Backdrop />;
+  return null;
 };
 
-/** Slow drifting gradient so a type-only beat is not a flat colour. */
+/** The gradient runs on composition time and stays visible between scenes. */
 const Backdrop: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -152,9 +155,35 @@ const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
   const chunks = React.useMemo(() => captionChunks(words), [words]);
+  const maxSize = 170;
+  const [fontSize, setFontSize] = React.useState(maxSize);
+  const { delayRender, continueRender, cancelRender } = useDelayRender();
+
+  React.useEffect(() => {
+    const handle = delayRender("Measure caption line widths");
+    let active = true;
+    void captionFontReady.then(() => {
+      if (!active) return;
+      const canvas = document.createElement("canvas").getContext("2d");
+      if (!canvas) throw new Error("Could not measure caption widths");
+      canvas.font = `${maxSize}px ${CAPTION_FONT}`;
+      // Leave room for glyph overhang and the black outline.
+      const fittedSize = captionFontSize(chunks, width - 184, maxSize, (text) => {
+        const metrics = canvas.measureText(text);
+        return Math.max(metrics.width, metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight);
+      });
+      flushSync(() => setFontSize(fittedSize));
+      continueRender(handle);
+    }).catch((error) => {
+      if (active) cancelRender(error);
+    });
+    return () => {
+      active = false;
+      continueRender(handle);
+    };
+  }, [chunks, width, delayRender, continueRender, cancelRender]);
   const chunk = chunkAt(chunks, frame / fps);
   if (!chunk) return null;
-  const fontSize = captionFontSize(chunk.text, width - 140, 170, 90);
   return (
     <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px" }}>
       <div
