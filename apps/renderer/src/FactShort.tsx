@@ -30,6 +30,8 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
+      <Backdrop />
+
       {props.musicUrl ? (
         <Audio
           src={props.musicUrl}
@@ -40,7 +42,7 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
       ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
-      {props.scenes.map((scene) => (
+      {props.scenes.filter((scene) => scene.kind !== "type").map((scene) => (
         <Sequence
           key={scene.beatId}
           from={toFrames(scene.start)}
@@ -99,11 +101,10 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  // Template v1 has no footage for "type" beats: the captions carry the words, the backdrop stays quiet.
-  return <Backdrop />;
+  return null;
 };
 
-/** Slow drifting gradient so a type-only beat is not a flat colour. */
+/** The gradient runs on composition time and stays visible between scenes. */
 const Backdrop: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
