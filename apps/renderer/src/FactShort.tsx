@@ -79,7 +79,8 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  if (scene.kind === "still" && asset?.kind === "image") {
+  // A stock search can resolve to a generated still when it finds no footage.
+  if ((scene.kind === "still" || scene.kind === "stock") && asset?.kind === "image") {
     const scale = interpolate(frame, [0, durationInFrames], [1, 1.12], { extrapolateRight: "clamp" });
     return (
       <AbsoluteFill>

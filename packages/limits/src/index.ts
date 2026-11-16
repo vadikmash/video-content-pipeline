@@ -1,11 +1,4 @@
-/**
- * Rate-limit ledger, circuit breaker and backoff (tech-plan section 5).
- *
- * M0: `acquire` always resolves. The call sites exist so that M2 can enforce
- * limits without touching any provider. `Deferred` is the error providers (and
- * later the ledger) throw when a request must wait for the next window; the
- * pipeline maps it to an Inngest retry.
- */
+/** A provider or quota ledger can defer work until its quota resets. */
 
 export class Deferred extends Error {
   readonly retryAfterMs: number;
@@ -33,16 +26,15 @@ export interface Limits {
 }
 
 export const limits: Limits = {
-  async acquire() {
-    /* M0 no-op */
-  },
-  async observe() {
-    /* M0 no-op */
-  },
-  async trip() {
-    /* M0 no-op */
-  },
+  async acquire() {},
+  async observe() {},
+  async trip() {},
 };
+
+/** The pipeline binds its persistent ledger at startup. Test worlds can run in memory. */
+export function configureLimits(implementation: Limits): void {
+  Object.assign(limits, implementation);
+}
 
 /** Exponential backoff with full jitter, capped. */
 export function backoffMs(attempt: number, baseMs = 500, capMs = 60_000): number {

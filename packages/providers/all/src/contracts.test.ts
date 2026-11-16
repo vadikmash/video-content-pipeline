@@ -31,6 +31,8 @@ function providersFor<P extends PortName>(port: P) {
     // YouTube insert spends a daily quota unit, so it stays behind its own flag.
     .filter((m) => {
       if (m.id === "publish-youtube") return includeYoutube;
+      if (m.id === "stock-pixabay") return includeReal && !!process.env.PIXABAY_KEY;
+      if (m.id === "image-flux") return process.env.FLUX_CONTRACT === "1" && !!process.env.BFL_API_KEY;
       if (m.fake || m.id === "blob-local" || m.id === "source-manual") return true;
       // A real provider without its API key cannot run; skip it instead of failing.
       return includeReal && m.env.filter((key) => key.endsWith("_API_KEY")).every((key) => process.env[key]);
@@ -145,14 +147,14 @@ describe("StockSearch", () => {
   for (const p of providersFor("StockSearch")) {
     it(`${p.id}: search returns Assets with attribution; fetch returns bytes`, async () => {
       const s = p.make();
-      const hits = await s.search("ocean waves", { orientation: "portrait", perPage: 1 });
+      const hits = await s.search("ocean waves", { perPage: 1 });
       expect(hits.length).toBeGreaterThan(0);
       for (const a of hits) {
         expect(() => Asset.parse(a)).not.toThrow();
         expect(a.attribution.text.length).toBeGreaterThan(0);
       }
       expect((await s.fetch(hits[0]!)).byteLength).toBeGreaterThan(0);
-    });
+    }, 60_000);
   }
 });
 
@@ -163,7 +165,7 @@ describe("ImageGen", () => {
       expect(() => Asset.parse(a)).not.toThrow();
       expect(a.kind).toBe("image");
       expect((await blob.get(a.blob)).byteLength).toBeGreaterThan(0);
-    });
+    }, 90_000);
   }
 });
 

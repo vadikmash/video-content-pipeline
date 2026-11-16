@@ -17,6 +17,7 @@ import { Poller } from "@/components/Poller";
 import { ScriptEditor } from "@/components/ScriptEditor";
 import { AudioPlayer } from "@/components/ui/AudioPlayer";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Field, Input } from "@/components/ui/Field";
 import { absoluteTime, hostOf, mediaTime } from "@/components/ui/format";
 import { GateBanner, type GateName } from "@/components/ui/GateBanner";
 import { Icon } from "@/components/ui/Icon";
@@ -36,7 +37,7 @@ import { Tag } from "@/components/ui/Tag";
 import type { MetaItem, StageRun } from "@/components/ui/types";
 import { VerticalPreview } from "@/components/ui/VerticalPreview";
 import { blobUrl } from "@/lib/blob";
-import { approveScript, approveVideo, publishUpload, rejectProject, retryStage } from "./actions";
+import { approveScript, approveVideo, publishUpload, rejectProject, replaceAsset, retryStage } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +102,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const live = project.status === "active" || project.status === "waiting";
   const stage = project.status === "waiting" ? project.currentStage : undefined;
   const gate = stage && isGate(stage) ? (stage as GateName) : undefined;
+  const videoReview = stageRows.find((row) => row.name === "approve-video");
+  const reviewRender = gate === "approve-video" && videoReview?.status === "waiting" &&
+    render?.storyboardId === storyboard?.id ? render : undefined;
   const reject = rejectProject.bind(null, project.id);
 
   const ci = currentIndex(runs);
@@ -204,7 +208,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         defaultOpen={open.includes("storyboard")}
       >
         {storyboard ? (
-          <StoryboardTable rows={storyboardRows(storyboard, assets, script, assetsFailed)} />
+          <StoryboardTable rows={storyboardRows(storyboard, assets, script, assetsFailed, reviewRender)} />
         ) : (
           <Empty k="storyboard" runs={runs} live={live} />
         )}
@@ -294,6 +298,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           {rail}
         </aside>
         <div className="vcp-stack">
+          {gate === "approve-video" && videoReview?.status === "running" ? (
+            <Notice tone="running" title="Updating video review" />
+          ) : null}
+          {gate === "approve-video" && videoReview?.error ? (
+            <Notice tone="failed" title="Video review update failed">{videoReview.error}</Notice>
+          ) : null}
           {gate ? (
             <GateBanner
               gate={gate}
@@ -301,11 +311,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 gate === "approve-script"
                   ? approveScript.bind(null, project.id)
                   : gate === "approve-video"
-                    ? approveVideo.bind(null, project.id)
+                    ? approveVideo.bind(null, project.id, render?.id ?? "")
                     : publishUpload.bind(null, project.id)
               }
               rejectAction={reject}
-              disabled={gate === "approve-script" ? !script : gate === "approve-video" ? !render : !upload}
+              disabled={gate === "approve-script" ? !script : gate === "approve-video" ? !reviewRender : !upload}
             />
           ) : null}
           <Panel
@@ -432,9 +442,11 @@ function storyboardRows(
   assets: Map<string, Asset>,
   script: Script | undefined,
   assetsFailed: boolean,
+  reviewRender?: Render,
 ): StoryboardRow[] {
   return storyboard.scenes.map((sc, k) => {
     const a = sc.assetId ? assets.get(sc.assetId) : undefined;
+    const visual = sc.visual;
     const credit = a ? `${a.attribution.text || a.provider}${a.synthetic ? " · synthetic" : ""}` : undefined;
     return {
       beat: k + 1,
@@ -444,6 +456,18 @@ function storyboardRows(
       thumb: a?.kind === "image" ? blobUrl(a.blob.key) : undefined,
       assetStatus: a || !needsAsset(sc) ? "ready" : assetsFailed ? "failed" : "missing",
       assetName: a ? `${a.provider} · ${a.kind} · ${a.licence}` : undefined,
+      replacement: reviewRender && (visual.kind === "stock" || visual.kind === "still") ? (
+        <details>
+          <summary>Replace asset</summary>
+          <form action={replaceAsset.bind(null, reviewRender.projectId, reviewRender.id, sc.beatId)}>
+            <Field label={visual.kind === "stock" ? "Search terms" : "Illustration prompt"}>
+              <Input name="description" required maxLength={visual.kind === "stock" ? 100 : 1000}
+                defaultValue={visual.kind === "still" ? visual.prompt : undefined} />
+            </Field>
+            <SubmitButton size="sm">Replace and render</SubmitButton>
+          </form>
+        </details>
+      ) : undefined,
       attribution:
         a && credit ? (
           a.attribution.url ? (

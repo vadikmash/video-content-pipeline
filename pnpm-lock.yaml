@@ -264,6 +264,9 @@ importers:
       '@vcp/provider-fake-tts':
         specifier: workspace:*
         version: link:../fake-tts
+      '@vcp/provider-image-flux':
+        specifier: workspace:*
+        version: link:../image-flux
       '@vcp/provider-llm-anthropic':
         specifier: workspace:*
         version: link:../llm-anthropic
@@ -279,6 +282,9 @@ importers:
       '@vcp/provider-source-manual':
         specifier: workspace:*
         version: link:../source-manual
+      '@vcp/provider-stock-pixabay':
+        specifier: workspace:*
+        version: link:../stock-pixabay
       '@vcp/provider-tts-elevenlabs':
         specifier: workspace:*
         version: link:../tts-elevenlabs
@@ -502,6 +508,25 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/providers/image-flux:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@vcp/limits':
+        specifier: workspace:*
+        version: link:../../limits
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/providers/llm-anthropic:
     dependencies:
       '@anthropic-ai/sdk':
@@ -579,6 +604,25 @@ importers:
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/providers/source-manual:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@vcp/limits':
+        specifier: workspace:*
+        version: link:../../limits
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/providers/stock-pixabay:
     dependencies:
       '@vcp/core':
         specifier: workspace:*

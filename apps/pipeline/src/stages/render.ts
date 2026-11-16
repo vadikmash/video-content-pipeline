@@ -1,6 +1,6 @@
-import type { AssetBundle, RenderInput } from "@vcp/core";
+import type { AssetBundle, RenderInput, Storyboard } from "@vcp/core";
 import { limits } from "@vcp/limits";
-import { StageError, defineStage } from "./context";
+import { StageError, defineStage, type StageCtx } from "./context";
 
 export const TEMPLATE = { id: "fact-short", version: "1.0.0" } as const;
 
@@ -12,34 +12,40 @@ export const render = defineStage({
     return { storyboardId: board.id, scenes: board.scenes, template: TEMPLATE };
   },
   async run(ctx, input) {
-    const { ports, store, project, idea } = ctx;
+    const { store, project } = ctx;
     const board = await store.latestStoryboard(project.id);
-    const narration = board ? await store.latestNarration(project.id) : undefined;
-    const script = narration ? await store.getScript(narration.scriptId) : undefined;
-    const brief = await store.latestBrief(project.id);
-    if (!board || !narration || !script) throw new StageError("render: storyboard, narration or script missing", false);
-    if (board.id !== input.storyboardId) throw new StageError("render: storyboard changed under us", false);
-
-    const assetIds = board.scenes.map((s) => s.assetId).filter((id): id is string => Boolean(id));
-    const bundle: AssetBundle = Object.fromEntries((await store.getAssets(assetIds)).map((a) => [a.id, a]));
-
-    const beats: Record<string, string> = { hook: script.hook, outro: script.outro };
-    for (const b of script.beats) beats[b.id] = b.text;
-
-    const renderInput: RenderInput = {
-      storyboard: board,
-      bundle,
-      template: TEMPLATE,
-      narration: { audioBlob: narration.audioBlob, words: narration.words, durationSec: narration.durationSec },
-      title: idea.title,
-      beats,
-      sources: brief?.sources ?? [],
-      projectId: project.id,
-    };
-
-    await limits.acquire(ports.Renderer.id);
-    const out = await ports.Renderer.render(renderInput);
+    if (board?.id !== input.storyboardId) throw new StageError("render: storyboard changed or missing", false);
+    const out = await renderStoryboard(ctx, board);
     await store.insertRender(out);
     return { artifactId: out.id, summary: { durationSec: out.durationSec, provider: out.provider, key: out.blob.key } };
   },
 });
+
+export async function renderStoryboard({ ports, store, project, idea }: StageCtx, board: Storyboard) {
+  const narration = await store.latestNarration(project.id);
+  const script = narration ? await store.getScript(narration.scriptId) : undefined;
+  const brief = await store.latestBrief(project.id);
+  if (narration?.id !== board.narrationId || !script) {
+    throw new StageError("render: storyboard narration changed or script missing", false);
+  }
+
+  const assetIds = board.scenes.flatMap((scene) => scene.assetId ? [scene.assetId] : []);
+  const bundle: AssetBundle = Object.fromEntries((await store.getAssets(assetIds)).map((asset) => [asset.id, asset]));
+
+  const beats: Record<string, string> = { hook: script.hook, outro: script.outro };
+  for (const beat of script.beats) beats[beat.id] = beat.text;
+
+  const input: RenderInput = {
+    storyboard: board,
+    bundle,
+    template: TEMPLATE,
+    narration: { audioBlob: narration.audioBlob, words: narration.words, durationSec: narration.durationSec },
+    title: idea.title,
+    beats,
+    sources: brief?.sources ?? [],
+    projectId: project.id,
+  };
+
+  await limits.acquire(ports.Renderer.id);
+  return ports.Renderer.render(input);
+}

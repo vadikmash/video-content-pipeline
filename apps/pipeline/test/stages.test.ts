@@ -38,7 +38,9 @@ describe("pipeline on fakes", () => {
     expect(brief?.sources).toContain("https://www.awm.gov.au/articles/encyclopedia/emu-war");
 
     const board = await store.latestStoryboard(project.id);
-    expect(board?.scenes.every((s) => s.visual.kind === "type" && !s.assetId)).toBe(true);
+    expect(board?.scenes.filter((s) => s.assetId).map((s) => s.visual.kind)).toEqual(["stock", "still"]);
+    expect(board?.scenes[0]?.visual.kind).toBe("type");
+    expect(board?.scenes.at(-1)?.visual.kind).toBe("type");
 
     const upload = await store.latestUpload(project.id);
     expect(upload?.privacy).toBe("public");

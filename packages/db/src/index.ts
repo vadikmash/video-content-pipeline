@@ -6,4 +6,6 @@ export * from "./repo/stages";
 export * from "./repo/artifacts";
 export * from "./repo/config";
 export * from "./repo/events";
+export * from "./repo/quota";
+export * from "./repo/video-review";
 export { DEFAULT_PORT_BINDINGS } from "./defaults";

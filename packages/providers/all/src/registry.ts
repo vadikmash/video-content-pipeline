@@ -11,11 +11,13 @@ import * as fakeResearch from "@vcp/provider-fake-research";
 import * as fakeSource from "@vcp/provider-fake-source";
 import * as fakeStock from "@vcp/provider-fake-stock";
 import * as fakeTts from "@vcp/provider-fake-tts";
+import * as imageFlux from "@vcp/provider-image-flux";
 import * as llmAnthropic from "@vcp/provider-llm-anthropic";
 import * as llmOpenai from "@vcp/provider-llm-openai";
 import * as publishYoutube from "@vcp/provider-publish-youtube";
 import * as renderRemotion from "@vcp/provider-render-remotion";
 import * as sourceManual from "@vcp/provider-source-manual";
+import * as stockPixabay from "@vcp/provider-stock-pixabay";
 import * as ttsElevenlabs from "@vcp/provider-tts-elevenlabs";
 
 /** Every provider in the tree. Fakes stay registered so dry-run and tests can swap back to them. */
@@ -33,7 +35,9 @@ export function createRegistry(): ProviderRegistry {
     .register(fakeAlign.manifest, fakeAlign.create)
     .register(alignElevenlabs.manifest, alignElevenlabs.create)
     .register(fakeStock.manifest, fakeStock.create)
+    .register(stockPixabay.manifest, stockPixabay.create)
     .register(fakeImage.manifest, fakeImage.create)
+    .register(imageFlux.manifest, imageFlux.create)
     .register(fakeClip.manifest, fakeClip.create)
     .register(fakeRender.manifest, fakeRender.create)
     .register(renderRemotion.manifest, renderRemotion.create)

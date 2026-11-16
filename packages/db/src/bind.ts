@@ -32,6 +32,15 @@ async function main() {
     bound.push("Aligner -> align-elevenlabs");
   }
 
+  if (process.env.PIXABAY_KEY) {
+    await setPortBinding("StockSearch", "stock-pixabay");
+    bound.push("StockSearch -> stock-pixabay");
+  }
+  if (process.env.BFL_API_KEY) {
+    await setPortBinding("ImageGen", "image-flux");
+    bound.push("ImageGen -> image-flux");
+  }
+
   const youtube = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"] as const;
   const youtubeMissing = youtube.filter((key) => !process.env[key]);
   if (youtubeMissing.length === 0) {

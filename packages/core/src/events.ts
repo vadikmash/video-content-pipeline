@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Id, IsoDate } from "./schemas";
+import { Id, IsoDate, StoryboardVisual } from "./schemas";
 
 /**
  * Event payloads exchanged between the dashboard and the pipeline.
@@ -9,7 +9,10 @@ export const EventSchemas = {
   "idea.selected": z.object({ projectId: Id, ideaId: Id }),
   "stage.completed": z.object({ projectId: Id, stage: z.string(), artifactId: Id.optional() }),
   "script.approved": z.object({ projectId: Id, scriptId: Id, version: z.number().int().positive() }),
-  "render.approved": z.object({ projectId: Id, renderId: Id }),
+  "render.approved": z.object({ projectId: Id, renderId: Id, requestId: Id.optional() }),
+  "asset.replace": z.object({
+    projectId: Id, renderId: Id, requestId: Id, beatId: Id, visual: StoryboardVisual,
+  }),
   "upload.publish": z.object({ projectId: Id, uploadId: Id, publishAt: IsoDate.optional() }),
   "project.rejected": z.object({ projectId: Id, stage: z.string(), reason: z.string() }),
   "ideas.discover": z.object({ limit: z.number().int().positive().optional() }),
