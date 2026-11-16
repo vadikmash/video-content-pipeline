@@ -36,9 +36,9 @@ async function main() {
     await setPortBinding("StockSearch", "stock-pixabay");
     bound.push("StockSearch -> stock-pixabay");
   }
-  if (process.env.BFL_API_KEY) {
-    await setPortBinding("ImageGen", "image-flux");
-    bound.push("ImageGen -> image-flux");
+  if (process.env.OPENAI_API_KEY) {
+    await setPortBinding("ImageGen", "image-openai");
+    bound.push("ImageGen -> image-openai");
   }
 
   const youtube = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"] as const;

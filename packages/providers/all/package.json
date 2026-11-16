@@ -26,6 +26,7 @@
     "@vcp/provider-fake-stock": "workspace:*",
     "@vcp/provider-fake-tts": "workspace:*",
     "@vcp/provider-image-flux": "workspace:*",
+    "@vcp/provider-image-openai": "workspace:*",
     "@vcp/provider-llm-anthropic": "workspace:*",
     "@vcp/provider-llm-openai": "workspace:*",
     "@vcp/provider-publish-youtube": "workspace:*",

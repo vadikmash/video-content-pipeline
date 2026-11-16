@@ -33,6 +33,7 @@ function providersFor<P extends PortName>(port: P) {
       if (m.id === "publish-youtube") return includeYoutube;
       if (m.id === "stock-pixabay") return includeReal && !!process.env.PIXABAY_KEY;
       if (m.id === "image-flux") return process.env.FLUX_CONTRACT === "1" && !!process.env.BFL_API_KEY;
+      if (m.id === "image-openai") return process.env.OPENAI_IMAGE_CONTRACT === "1" && !!process.env.OPENAI_API_KEY;
       if (m.fake || m.id === "blob-local" || m.id === "source-manual") return true;
       // A real provider without its API key cannot run; skip it instead of failing.
       return includeReal && m.env.filter((key) => key.endsWith("_API_KEY")).every((key) => process.env[key]);

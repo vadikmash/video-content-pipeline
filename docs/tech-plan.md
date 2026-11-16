@@ -206,7 +206,7 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 
 - M0, week 1. Monorepo, core schemas and ports, DB, fakes for every port, Inngest locally, dashboard with Ideas inbox and manual add. A selected idea runs end to end on fakes and produces a placeholder MP4. Nothing paid is called.
 - M1, weeks 2–3. Real script with claims (one LLM provider), ElevenLabs voice and alignment, Remotion template v1 (typography, captions, music, source card), local render, YouTube upload as private, publish from the dashboard. First real video. Do five of these by hand-picking ideas before adding research.
-- M2, week 4. Pixabay stock, Flux stills, storyboard planner, review page with asset replacement, quota ledger and circuit breakers live.
+- M2, week 4. Pixabay stock, GPT Image stills, storyboard planner, review page with asset replacement, quota ledger and circuit breakers live.
 - M3, week 5. Discovery sources: Wikimedia, YouTube most-popular, Reddit (after app registration). Scoring and dedupe.
 - M4, week 6. Deploy. Scheduling via `publishAt`. Pull YouTube Analytics per video back into the ideas table so scoring can learn from what worked.
 - Later, only if a beat needs it: clip generation (Kling or Gemini Omni), second renderer, second voice provider.
@@ -224,3 +224,8 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 - Hosting for phase 2 (Render, Fly, VPS). Nothing in phase 1 depends on it.
 - First LLM provider and first voice. The ports do not care; the template and the voice do.
 - Whether research-found ideas may be auto-shortlisted, or whether everything stays `new` until you look.
+
+## 13. Technical debt
+
+- Black Forest Labs. Verify authentication and the existing FLUX adapter against the live API before making it a supported provider.
+- fal. Add a FLUX adapter using `FAL_KEY` and verify generation, retries, and quota handling.

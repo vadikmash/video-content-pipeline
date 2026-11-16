@@ -12,6 +12,7 @@ import * as fakeSource from "@vcp/provider-fake-source";
 import * as fakeStock from "@vcp/provider-fake-stock";
 import * as fakeTts from "@vcp/provider-fake-tts";
 import * as imageFlux from "@vcp/provider-image-flux";
+import * as imageOpenai from "@vcp/provider-image-openai";
 import * as llmAnthropic from "@vcp/provider-llm-anthropic";
 import * as llmOpenai from "@vcp/provider-llm-openai";
 import * as publishYoutube from "@vcp/provider-publish-youtube";
@@ -38,6 +39,7 @@ export function createRegistry(): ProviderRegistry {
     .register(stockPixabay.manifest, stockPixabay.create)
     .register(fakeImage.manifest, fakeImage.create)
     .register(imageFlux.manifest, imageFlux.create)
+    .register(imageOpenai.manifest, imageOpenai.create)
     .register(fakeClip.manifest, fakeClip.create)
     .register(fakeRender.manifest, fakeRender.create)
     .register(renderRemotion.manifest, renderRemotion.create)
