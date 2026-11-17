@@ -104,6 +104,19 @@ const storyboardVisuals = [
 
 export const StoryboardVisual = z.discriminatedUnion("kind", storyboardVisuals);
 
+export const FlowDiagram = z.object({
+  kind: z.literal("flow"),
+  steps: z.array(z.object({
+    label: z.string().trim().min(1).max(48),
+    detail: z.string().trim().min(1).max(80),
+  })).min(2).max(4),
+});
+
+export const ProcessDiagram = z.discriminatedUnion("kind", [
+  FlowDiagram,
+  z.object({ kind: z.literal("octopus-circulation"), focus: z.enum(["gills", "body", "cycle"]) }),
+]);
+
 export const VisualIntent = z.discriminatedUnion("kind", [
   ...storyboardVisuals,
   z.object({ kind: z.literal("clip"), prompt: z.string().min(1), seconds: z.number().positive() }),

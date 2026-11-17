@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.0.0";
+export const TEMPLATE_VERSION = "1.1.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
@@ -21,6 +21,7 @@ export const SceneAsset = z.object({
   kind: z.enum(["video", "image", "audio"]),
   url: z.string(),
   attribution: z.string().optional(),
+  durationSec: z.number().positive().optional(),
 });
 
 export const SceneProp = z.object({
@@ -30,6 +31,10 @@ export const SceneProp = z.object({
   text: z.string(),
   kind: z.enum(["type", "stock", "still", "clip", "diagram"]),
   asset: SceneAsset.optional(),
+  diagram: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("flow"), steps: z.array(z.object({ label: z.string(), detail: z.string() })) }),
+    z.object({ kind: z.literal("octopus-circulation"), focus: z.enum(["gills", "body", "cycle"]) }),
+  ]).optional(),
 });
 
 export const FactShortProps = z.object({

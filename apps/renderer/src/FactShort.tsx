@@ -2,6 +2,7 @@ import React from "react";
 import {
   AbsoluteFill,
   Audio,
+  Freeze,
   Img,
   OffthreadVideo,
   Sequence,
@@ -11,6 +12,7 @@ import {
 } from "remotion";
 import { captionChunks, captionFontSize, chunkAt } from "./captions";
 import { CAPTION_FONT } from "./fonts";
+import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
 
@@ -25,6 +27,8 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
   const closingStart = Math.max(0, props.durationSec - 2.5);
   const frame = useCurrentFrame();
   const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
+  const timeline = visualTimeline(props.scenes, fps, toFrames(props.durationSec));
+  const showDiagram = timeline.some(({ start, end, scene }) => frame >= start && frame < end && scene.diagram);
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
@@ -38,12 +42,12 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
       ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
-      {props.scenes.map((scene) => (
+      {timeline.map(({ scene, start, end, beatId }) => (
         <Sequence
-          key={scene.beatId}
-          from={toFrames(scene.start)}
-          durationInFrames={Math.max(1, toFrames(scene.end) - toFrames(scene.start))}
-          name={`${scene.beatId}:${scene.kind}`}
+          key={beatId}
+          from={start}
+          durationInFrames={end - start}
+          name={`${beatId}:${scene.kind}`}
         >
           <Scene scene={scene} />
         </Sequence>
@@ -53,7 +57,7 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
         <TitleCard title={props.title} />
       </Sequence>
 
-      <Captions words={props.words} />
+      <Captions words={props.words} showDiagram={showDiagram} />
 
       <Sequence from={toFrames(closingStart)} name="closing">
         <ClosingCard sources={props.sources} synthetic={props.containsSyntheticMedia} />
@@ -62,17 +66,39 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
   );
 };
 
-// ---------------------------------------------------------------------------
+function visualTimeline(scenes: SceneProp[], fps: number, duration: number) {
+  const sorted = [...scenes].sort((a, b) => a.start - b.start);
+  const hasVisual = (scene: SceneProp) => scene.diagram || scene.asset?.kind === "image" || scene.asset?.kind === "video";
+  const still = sorted.find((scene) => scene.asset?.kind === "image");
+  const firstVisual = sorted.find(hasVisual);
+  let previousVisual: SceneProp | undefined;
+  const intervals = sorted.flatMap((scene, index) => {
+    // The visual remains on screen through pauses. The last beat also covers the source card.
+    const start = index === 0 ? 0 : Math.max(0, Math.round(scene.start * fps));
+    const next = sorted[index + 1];
+    const end = next ? Math.min(duration, Math.round(next.start * fps)) : duration;
+    if (end <= start) return [];
+    const visual = hasVisual(scene) ? scene : (scene.beatId === "outro" ? still : undefined) ?? previousVisual ?? firstVisual ?? scene;
+    if (hasVisual(scene)) previousVisual = scene;
+    return [{ scene: visual, start, end, beatId: scene.beatId }];
+  });
+  return intervals.length ? intervals : [{
+    scene: { beatId: "visual", kind: "type" as const, start: 0, end: duration / fps, text: "" },
+    start: 0, end: duration, beatId: "visual",
+  }];
+}
 
 const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
   const asset = scene.asset;
 
-  if ((scene.kind === "stock" || scene.kind === "clip") && asset?.kind === "video") {
+  if (asset?.kind === "video") {
+    const lastFrame = asset.durationSec === undefined ? null : Math.max(0, Math.floor(asset.durationSec * fps) - 1);
+    const video = <OffthreadVideo src={asset.url} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
     return (
       <AbsoluteFill>
-        <OffthreadVideo src={asset.url} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        {lastFrame !== null && frame > lastFrame ? <Freeze frame={lastFrame}>{video}</Freeze> : video}
         <Vignette />
         {asset.attribution ? <Attribution text={asset.attribution} /> : null}
       </AbsoluteFill>
@@ -80,7 +106,7 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
   }
 
   // A stock search can resolve to a generated still when it finds no footage.
-  if ((scene.kind === "still" || scene.kind === "stock") && asset?.kind === "image") {
+  if (asset?.kind === "image") {
     const scale = interpolate(frame, [0, durationInFrames], [1, 1.12], { extrapolateRight: "clamp" });
     return (
       <AbsoluteFill>
@@ -90,19 +116,11 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  if (scene.kind === "diagram") {
-    return (
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-        <div style={{ width: 760, height: 760, border: `6px dashed ${ACCENT}`, borderRadius: 32, opacity: 0.6 }} />
-      </AbsoluteFill>
-    );
-  }
-
-  // Template v1 has no footage for "type" beats: the captions carry the words, the backdrop stays quiet.
+  if (scene.diagram) return <ProcessVisual diagram={scene.diagram} />;
   return <Backdrop />;
 };
 
-/** Slow drifting gradient so a type-only beat is not a flat colour. */
+/** Animated editorial texture when the storyboard has no usable media. */
 const Backdrop: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -110,11 +128,21 @@ const Backdrop: React.FC = () => {
   const x = 50 + 18 * Math.sin(t / 7);
   const y = 42 + 12 * Math.cos(t / 9);
   return (
-    <AbsoluteFill
-      style={{
-        background: `radial-gradient(circle at ${x}% ${y}%, #1e3a5f 0%, ${BG} 62%)`,
-      }}
-    />
+    <AbsoluteFill style={{ background: `radial-gradient(circle at ${x}% ${y}%, #275769 0%, ${BG} 72%)` }}>
+      <AbsoluteFill style={{
+        backgroundImage: "radial-gradient(#b5dbe870 2px, transparent 2px)",
+        backgroundSize: "38px 38px",
+        backgroundPosition: `${(frame * 0.7) % 38}px ${(frame * 0.4) % 38}px`,
+      }} />
+      {[0, 1, 2].map((index) => (
+        <div key={index} style={{
+          position: "absolute", width: 570 + index * 112, height: 570 + index * 112,
+          border: `3px solid ${index === 1 ? "#fbbf2455" : "#9bdbff66"}`, borderRadius: "48%",
+          left: 70 + index * 84, top: 425 + index * 60,
+          transform: `rotate(${index * 34 + frame / 16}deg) scaleX(1.2)`,
+        }} />
+      ))}
+    </AbsoluteFill>
   );
 };
 
@@ -149,7 +177,7 @@ const TitleCard: React.FC<{ title: string }> = ({ title }) => {
  * Big centred captions, one word at a time as it is said: white Impact with a
  * black outline. No highlight, no motion; each word replaces the last.
  */
-const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
+const Captions: React.FC<{ words: WordProp[]; showDiagram: boolean }> = ({ words, showDiagram }) => {
   const frame = useCurrentFrame();
   const { fps, width } = useVideoConfig();
   const chunks = React.useMemo(() => captionChunks(words), [words]);
@@ -157,7 +185,7 @@ const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
   if (!chunk) return null;
   const fontSize = captionFontSize(chunk.text, width - 140, 170, 90);
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px" }}>
+    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px", paddingTop: showDiagram ? 920 : 0 }}>
       <div
         style={{
           fontFamily: CAPTION_FONT,
@@ -181,7 +209,8 @@ const ClosingCard: React.FC<{ sources: string[]; synthetic: boolean }> = ({ sour
   const frame = useCurrentFrame();
   const opacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", backgroundColor: BG, opacity, padding: 96 }}>
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", opacity, padding: "0 96px 220px" }}>
+      <div style={{ backgroundColor: "#081827dd", borderRadius: 28, padding: "32px 46px", width: "100%", textAlign: "center" }}>
       <div style={{ fontSize: 44, fontWeight: 800, marginBottom: 32, color: ACCENT }}>Sources</div>
       {sources.slice(0, 4).map((s) => (
         <div key={s} style={{ fontSize: 30, opacity: 0.85, marginBottom: 12, wordBreak: "break-all", textAlign: "center" }}>
@@ -191,6 +220,7 @@ const ClosingCard: React.FC<{ sources: string[]; synthetic: boolean }> = ({ sour
       {synthetic ? (
         <div style={{ marginTop: 48, fontSize: 28, opacity: 0.7 }}>Contains AI-generated imagery</div>
       ) : null}
+      </div>
     </AbsoluteFill>
   );
 };
@@ -203,6 +233,6 @@ const Vignette: React.FC = () => (
 
 const Attribution: React.FC<{ text: string }> = ({ text }) => (
   <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "flex-start", padding: 40 }}>
-    <div style={{ fontSize: 22, opacity: 0.6 }}>{text}</div>
+    <div style={{ fontSize: 25, backgroundColor: "#081827b0", borderRadius: 12, padding: "7px 12px" }}>{text}</div>
   </AbsoluteFill>
 );

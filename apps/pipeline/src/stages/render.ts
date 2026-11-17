@@ -1,8 +1,9 @@
 import type { AssetBundle, RenderInput, Storyboard } from "@vcp/core";
 import { limits } from "@vcp/limits";
+import { TEMPLATE_ID, TEMPLATE_VERSION } from "@vcp/renderer/props";
 import { StageError, defineStage, type StageCtx } from "./context";
 
-export const TEMPLATE = { id: "fact-short", version: "1.0.0" } as const;
+export const TEMPLATE = { id: TEMPLATE_ID, version: TEMPLATE_VERSION } as const;
 
 export const render = defineStage({
   name: "render",

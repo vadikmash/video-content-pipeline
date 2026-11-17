@@ -8,6 +8,7 @@ import { renderMedia, renderStill, selectComposition } from "@remotion/renderer"
 import {
   defineManifest,
   newId,
+  ProcessDiagram,
   nowIso,
   type BlobRef,
   type BlobStore,
@@ -93,14 +94,16 @@ export async function toFactShortProps(
   const scenes = await Promise.all(
     input.storyboard.scenes.map(async (scene) => {
       const asset = scene.assetId ? input.bundle[scene.assetId] : undefined;
+      const diagram = scene.visual.kind === "diagram" ? ProcessDiagram.safeParse(scene.visual.spec) : undefined;
       return {
         beatId: scene.beatId,
         start: scene.start,
         end: scene.end,
         text: input.beats[scene.beatId] ?? "",
         kind: scene.visual.kind,
+        diagram: diagram?.success ? diagram.data : undefined,
         asset: asset
-          ? { kind: asset.kind, url: await urlFor(asset.blob), attribution: asset.attribution.text || undefined }
+          ? { kind: asset.kind, url: await urlFor(asset.blob), attribution: asset.attribution.text || undefined, durationSec: asset.durationSec }
           : undefined,
       };
     }),
