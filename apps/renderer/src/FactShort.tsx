@@ -24,7 +24,6 @@ const FONT = "Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif";
 export const FactShort: React.FC<FactShortProps> = (props) => {
   const { fps } = useVideoConfig();
   const toFrames = (s: number) => Math.max(0, Math.round(s * fps));
-  const closingStart = Math.max(0, props.durationSec - 2.5);
   const frame = useCurrentFrame();
   const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
   const timeline = visualTimeline(props.scenes, fps, toFrames(props.durationSec));
@@ -58,10 +57,6 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
       </Sequence>
 
       <Captions words={props.words} showDiagram={showDiagram} />
-
-      <Sequence from={toFrames(closingStart)} name="closing">
-        <ClosingCard sources={props.sources} synthetic={props.containsSyntheticMedia} />
-      </Sequence>
     </AbsoluteFill>
   );
 };
@@ -73,7 +68,7 @@ function visualTimeline(scenes: SceneProp[], fps: number, duration: number) {
   const firstVisual = sorted.find(hasVisual);
   let previousVisual: SceneProp | undefined;
   const intervals = sorted.flatMap((scene, index) => {
-    // The visual remains on screen through pauses. The last beat also covers the source card.
+    // The visual remains on screen through pauses and to the end of the Short.
     const start = index === 0 ? 0 : Math.max(0, Math.round(scene.start * fps));
     const next = sorted[index + 1];
     const end = next ? Math.min(duration, Math.round(next.start * fps)) : duration;
@@ -200,26 +195,6 @@ const Captions: React.FC<{ words: WordProp[]; showDiagram: boolean }> = ({ words
         }}
       >
         {chunk.text}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-const ClosingCard: React.FC<{ sources: string[]; synthetic: boolean }> = ({ sources, synthetic }) => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-  return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", opacity, padding: "0 96px 220px" }}>
-      <div style={{ backgroundColor: "#081827dd", borderRadius: 28, padding: "32px 46px", width: "100%", textAlign: "center" }}>
-      <div style={{ fontSize: 44, fontWeight: 800, marginBottom: 32, color: ACCENT }}>Sources</div>
-      {sources.slice(0, 4).map((s) => (
-        <div key={s} style={{ fontSize: 30, opacity: 0.85, marginBottom: 12, wordBreak: "break-all", textAlign: "center" }}>
-          {s.replace(/^https?:\/\//, "")}
-        </div>
-      ))}
-      {synthetic ? (
-        <div style={{ marginTop: 48, fontSize: 28, opacity: 0.7 }}>Contains AI-generated imagery</div>
-      ) : null}
       </div>
     </AbsoluteFill>
   );

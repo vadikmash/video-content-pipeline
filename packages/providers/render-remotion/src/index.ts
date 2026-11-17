@@ -108,16 +108,14 @@ export async function toFactShortProps(
       };
     }),
   );
-  const sources = [...new Set(Object.values(input.bundle).map((a) => a.attribution.url).filter(Boolean))];
+  // Leave a short hold for the audio tail beyond the last timed word.
   const lastEnd = Math.max(input.narration.durationSec, ...scenes.map((s) => s.end));
   return {
     title: input.title,
-    durationSec: Math.max(1, Math.ceil((lastEnd + 2.5) * 10) / 10),
+    durationSec: Math.max(1, Math.ceil((lastEnd + 0.25) * 10) / 10),
     audioUrl: await urlFor(input.narration.audioBlob),
     words: input.narration.words,
     scenes,
-    sources: input.sources ?? sources,
-    containsSyntheticMedia: input.storyboard.containsSyntheticMedia,
     musicUrl,
   };
 }
