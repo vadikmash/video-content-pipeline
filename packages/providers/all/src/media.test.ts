@@ -15,7 +15,7 @@ afterEach(() => {
 
 it("caches a Pixabay search across adapter instances and filters by duration and orientation", async () => {
   const variant = (id: number, width: number, height: number, duration: number) => ({
-    id, duration, user: "creator", pageURL: `https://pixabay.com/videos/id-${id}/`,
+    id, duration, user: "creator", pageURL: `https://pixabay.com/videos/id-${id}/`, tags: "ocean, ai generated",
     videos: { medium: { url: `https://cdn.pixabay.com/video/${id}.mp4`, width, height } },
   });
   const fetch = vi.fn<typeof globalThis.fetch>()
@@ -27,8 +27,10 @@ it("caches a Pixabay search across adapter instances and filters by duration and
   const stock = createPixabay(ctx);
   const hits = await stock.search("  ocean    waves ", opts);
   expect(hits.map((asset) => asset.id)).toEqual(["stock-pixabay-3"]);
+  expect(hits[0]?.synthetic).toBe(true);
   expect(hits[0]?.attribution).toEqual({ text: "Video by creator on Pixabay", url: "https://pixabay.com/videos/id-3/" });
   expect(await createPixabay(ctx).search("ocean waves", { ...opts, minDurationSec: 25 })).toEqual([]);
+  expect((await createPixabay(ctx).search("ocean waves", opts))[0]?.synthetic).toBe(true);
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(await stock.fetch(hits[0]!)).toEqual(new Uint8Array([1, 2, 3]));
   expect(String(fetch.mock.calls[1]?.[0])).toBe("https://cdn.pixabay.com/video/3.mp4");

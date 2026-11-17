@@ -10,6 +10,7 @@ export function buildUploadMeta(idea: Idea, brief: Brief | undefined, board: Sto
   const description = [
     idea.oneLiner,
     "",
+    ...(board.containsSyntheticMedia ? ["This video includes AI-generated visuals.", ""] : []),
     sources.length ? "Sources:" : "",
     ...sources.map((s) => `- ${s}`),
     attribution.length ? "" : "",

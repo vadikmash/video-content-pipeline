@@ -9,7 +9,7 @@ export const render = defineStage({
   async input(ctx) {
     const board = await ctx.store.latestStoryboard(ctx.project.id);
     if (!board) throw new StageError("render: no storyboard for project", false);
-    return { storyboardId: board.id, scenes: board.scenes, template: TEMPLATE };
+    return { storyboardId: board.id, scenes: board.scenes, containsSyntheticMedia: board.containsSyntheticMedia, template: TEMPLATE };
   },
   async run(ctx, input) {
     const { store, project } = ctx;

@@ -6,14 +6,12 @@ const EXT: Record<string, string> = { "video/mp4": "mp4", "image/png": "png", "i
 
 /** Stylised stills do not trigger the disclosure; photoreal depictions and clips do. */
 export function isSyntheticDepiction(visual: VisualIntent, asset: Asset): boolean {
-  if (visual.kind === "clip") return true;
-  if (visual.kind === "still") return asset.synthetic;
-  return false;
+  return visual.kind === "clip" || asset.synthetic;
 }
 
 async function persist(blob: BlobStore, projectId: string, asset: Asset, bytes: Uint8Array): Promise<Asset> {
   const ext = EXT[asset.blob.contentType] ?? "bin";
-  const id = inputHash({ projectId, assetId: asset.id });
+  const id = inputHash({ projectId, assetId: asset.id, ...(asset.synthetic && { synthetic: true }) });
   const ref = await blob.put(`projects/${projectId}/assets/${id}.${ext}`, bytes, asset.blob.contentType);
   return { ...asset, id, blob: ref };
 }

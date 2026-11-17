@@ -22,6 +22,7 @@ const searchResult = z.object({
     pageURL: z.url(),
     duration: z.number().positive(),
     user: z.string(),
+    tags: z.string().optional(),
     videos: z.record(z.string(), rendition),
   })),
 });
@@ -44,7 +45,7 @@ export function create(ctx: ProviderContext): StockSearch {
       if (!q) return [];
       const params = new URLSearchParams({ q, safesearch: "true", per_page: "30" });
       const hash = createHash("sha256").update(apiKey).update("\0").update(params.toString()).digest("hex");
-      const cacheRef = { key: `cache/stock-pixabay/${hash}.json`, contentType: "application/json" };
+      const cacheRef = { key: `cache/stock-pixabay/v2/${hash}.json`, contentType: "application/json" };
       let result: z.infer<typeof searchResult> | undefined;
       try {
         const data = cacheEntry.safeParse(JSON.parse(new TextDecoder().decode(await ctx.blob.get(cacheRef))));
@@ -95,7 +96,7 @@ export function create(ctx: ProviderContext): StockSearch {
           width: variant.width,
           height: variant.height,
           durationSec: video.duration,
-          synthetic: false,
+          synthetic: video.tags?.split(",").some((tag) => /^ai[\s-]+generated$/i.test(tag.trim())) ?? false,
           createdAt: nowIso(),
         });
       }
