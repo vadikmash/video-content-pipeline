@@ -216,3 +216,21 @@ it("clears a failed video approval reservation when its gate is retried", async 
     world.cleanup();
   }
 });
+
+it("recovers gate initialization failure and ignores failure notifications from an older gate run", async () => {
+  const { failGateRun, markGateWaiting } = await import("../src/stages/runner");
+  const world=makeWorld();
+  try {
+    await world.store.upsertStage(world.project.id,"render",{status:"done"});
+    await world.store.updateProject(world.project.id,{status:"active",currentStage:"render"});
+    await failGateRun(world.project.id,"approve-video","first-run","Could not load gate mode",world.store);
+    expect(await world.store.getProject(world.project.id)).toMatchObject({status:"failed",currentStage:"approve-video"});
+    await markGateWaiting(world.project.id,"approve-video",world.store,"new-run");
+    await failGateRun(world.project.id,"approve-video","first-run","Late failure",world.store);
+    expect((await world.store.getProject(world.project.id))?.status).toBe("waiting");
+    await failGateRun(world.project.id,"approve-video","new-run","Database failed",world.store);
+    expect((await world.store.getProject(world.project.id))?.status).toBe("failed");
+  } finally {
+    world.cleanup();
+  }
+});

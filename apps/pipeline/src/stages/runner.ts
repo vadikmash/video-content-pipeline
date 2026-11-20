@@ -3,6 +3,7 @@ import {
   STAGE_PORTS,
   gateMode,
   inputHash,
+  previousStage,
   type GateMode,
   type GateName,
   type ProviderRegistry,
@@ -124,4 +125,19 @@ export async function rejectProject(projectId: string, stage: string, reason: st
 export async function failProject(projectId: string, stage: string, error: string, store: Store): Promise<void> {
   await store.upsertStage(projectId, stage, { status: "failed", finishedAt: new Date(), error });
   await store.updateProject(projectId, { status: "failed", currentStage: stage });
+}
+
+/** Recover both gate initialization failures and failures while recording an approval. */
+export async function failGateRun(projectId: string, gate: GateName, runId: string, error: string, store: Store): Promise<void> {
+  const project = await store.getProject(projectId);
+  if (!project || project.status === "rejected") return;
+  const row = await store.getStage(projectId, gate);
+  if (project.currentStage === gate) {
+    if (row?.runId && row.runId !== runId) return;
+  } else {
+    const previous = previousStage(gate);
+    if (project.currentStage !== previous || !previous) return;
+    if ((await store.getStage(projectId, previous))?.status !== "done") return;
+  }
+  await failProject(projectId, gate, error, store);
 }

@@ -33,7 +33,10 @@ async function main() {
     }
   } else if (process.env.ELEVENLABS_API_KEY) {
     const voiceId = process.env.ELEVENLABS_VOICE_ID;
-    const options = voiceId ? { voiceId } : {};
+    const options = {
+      ...(voiceId ? { voiceId } : {}),
+      ...(process.env.ELEVENLABS_MODEL === "eleven_v3" ? { voiceSettings: { stability: 0.5 } } : {}),
+    };
     await setPortBinding("Speech", "tts-elevenlabs", options);
     await setPortBinding("Aligner", "align-elevenlabs");
     bound.push(`Speech -> tts-elevenlabs${voiceId ? "" : " (set ELEVENLABS_VOICE_ID)"}`);

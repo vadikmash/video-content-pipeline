@@ -8,7 +8,7 @@ export interface TimedText {
 
 export interface WordMatch {
   words: Word[];
-  /** Share of tokens whose timing came from the provider; the rest were interpolated. */
+  /** Share of spoken tokens whose timing came from the provider; the rest were interpolated. */
   matchedRatio: number;
 }
 
@@ -81,7 +81,7 @@ export function matchCharacters(
 
   const matched = timed.filter(Boolean).length;
   const streamEnd = ends[ends.length - 1] ?? 0;
-  return { words: monotonic(fillGaps(tokens, timed, streamEnd)), matchedRatio: matched / tokens.length };
+  return { words: monotonic(fillGaps(tokens, timed, streamEnd)), matchedRatio: matched / (tokens.filter((token) => fold(token).length > 0).length || 1) };
 }
 
 /** Back-compat wrapper: words only. */

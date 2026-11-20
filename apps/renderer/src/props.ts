@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.3.1";
+export const TEMPLATE_VERSION = "1.3.2";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;

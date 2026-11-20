@@ -52,3 +52,13 @@ it("rejects unrelated transcription text instead of interpolating the whole narr
   await expect(aligner.align(new Uint8Array([1]),"The Moon turns red during an eclipse."))
     .rejects.toMatchObject({status:502});
 });
+
+it("accepts accurate timestamps when the script includes a standalone punctuation token", async () => {
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({words:[
+    {word:"Wait",start:0,end:0.3},{word:"what",start:0.4,end:0.6},
+    {word:"is",start:0.6,end:0.8},{word:"that",start:0.8,end:1.2},
+  ]})));
+  const aligner=createAligner({options:{},env:{OPENAI_API_KEY:"test"},blob:undefined!});
+  const words=await aligner.align(new Uint8Array([1]),"Wait — what is that?");
+  expect(words.map((word)=>word.text)).toEqual(["Wait","—","what","is","that?"]);
+});
