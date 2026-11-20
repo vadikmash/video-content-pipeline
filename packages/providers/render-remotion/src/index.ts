@@ -18,6 +18,7 @@ import {
   type Renderer,
 } from "@vcp/core";
 import { FPS, HEIGHT, TEMPLATE_ID, TEMPLATE_VERSION, WIDTH, type FactShortProps } from "@vcp/renderer/props";
+import { captionPositionFor, type CaptionPosition } from "./caption-placement";
 import { startStaticServer } from "./static-server";
 
 export const manifest = defineManifest({
@@ -91,11 +92,25 @@ export async function toFactShortProps(
   urlFor: (ref: BlobRef) => Promise<string>,
   musicUrl?: string,
 ): Promise<FactShortProps> {
+  const placements = new Map<string, Promise<CaptionPosition>>();
   const scenes = await Promise.all(
     input.storyboard.scenes.map(async (scene) => {
       const asset = scene.assetId ? input.bundle[scene.assetId] : undefined;
       const diagram = scene.visual.kind === "diagram" ? ProcessDiagram.safeParse(scene.visual.spec) : undefined;
+      const assetUrl = asset ? await urlFor(asset.blob) : undefined;
+      let captionPosition = scene.captionPosition;
+      if (!captionPosition && asset && assetUrl && (asset.kind === "image" || asset.kind === "video")) {
+        const placementKey = `${asset.id}:${scene.start < 2.5 ? "title" : "clear"}`;
+        let placement = placements.get(placementKey);
+        if (!placement) {
+          placement = captionPositionFor(assetUrl, asset.kind,
+            Math.min(asset.durationSec ?? scene.end - scene.start, scene.end - scene.start), scene.start >= 2.5);
+          placements.set(placementKey, placement);
+        }
+        captionPosition = await placement;
+      }
       return {
+        captionPosition: captionPosition ?? "bottom",
         beatId: scene.beatId,
         start: scene.start,
         end: scene.end,
@@ -103,7 +118,7 @@ export async function toFactShortProps(
         kind: scene.visual.kind,
         diagram: diagram?.success ? diagram.data : undefined,
         asset: asset
-          ? { kind: asset.kind, url: await urlFor(asset.blob), attribution: asset.attribution.text || undefined, durationSec: asset.durationSec }
+          ? { kind: asset.kind, url: assetUrl!, attribution: asset.attribution.text || undefined, durationSec: asset.durationSec }
           : undefined,
       };
     }),

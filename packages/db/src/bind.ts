@@ -23,7 +23,15 @@ async function main() {
     console.log("ANTHROPIC_API_KEY is set. Set LLM_PROVIDER=anthropic to bind llm-anthropic. TextModel unchanged.");
   }
 
-  if (process.env.ELEVENLABS_API_KEY) {
+  if (process.env.TTS_PROVIDER === "openai" || (!process.env.ELEVENLABS_API_KEY && process.env.OPENAI_API_KEY)) {
+    if (process.env.OPENAI_API_KEY) {
+      await setPortBinding("Speech", "tts-openai", { voiceId: process.env.OPENAI_TTS_VOICE || "cedar", speed: 1 });
+      await setPortBinding("Aligner", "align-openai");
+      bound.push("Speech -> tts-openai", "Aligner -> align-openai");
+    } else {
+      console.log("TTS_PROVIDER=openai but OPENAI_API_KEY is unset; narration bindings unchanged");
+    }
+  } else if (process.env.ELEVENLABS_API_KEY) {
     const voiceId = process.env.ELEVENLABS_VOICE_ID;
     const options = voiceId ? { voiceId } : {};
     await setPortBinding("Speech", "tts-elevenlabs", options);

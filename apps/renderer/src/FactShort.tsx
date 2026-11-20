@@ -10,7 +10,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { captionChunks, captionFontSize, chunkAt } from "./captions";
+import { captionChunks, captionFontSize, captionLines, chunkAt, wordEmphasis } from "./captions";
 import { CAPTION_FONT } from "./fonts";
 import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
@@ -27,7 +27,6 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
   const frame = useCurrentFrame();
   const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
   const timeline = visualTimeline(props.scenes, fps, toFrames(props.durationSec));
-  const showDiagram = timeline.some(({ start, end, scene }) => frame >= start && frame < end && scene.diagram);
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
@@ -56,7 +55,7 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
         <TitleCard title={props.title} />
       </Sequence>
 
-      <Captions words={props.words} showDiagram={showDiagram} />
+      <Captions words={props.words} timeline={timeline} />
     </AbsoluteFill>
   );
 };
@@ -168,35 +167,46 @@ const TitleCard: React.FC<{ title: string }> = ({ title }) => {
   );
 };
 
-/**
- * Big centred captions, one word at a time as it is said: white Impact with a
- * black outline. No highlight, no motion; each word replaces the last.
- */
-const Captions: React.FC<{ words: WordProp[]; showDiagram: boolean }> = ({ words, showDiagram }) => {
+const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visualTimeline> }> = ({ words, timeline }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const time = frame / fps;
   const chunks = React.useMemo(() => captionChunks(words), [words]);
-  const chunk = chunkAt(chunks, frame / fps);
+  const chunk = chunkAt(chunks, time);
   if (!chunk) return null;
-  const fontSize = captionFontSize(chunk.text, width - 140, 170, 90);
+  const scene = timeline.find(({ start, end }) => frame >= start && frame < end)?.scene;
+  const position = scene?.captionPosition ?? "bottom";
+  const narrow = position.includes("-");
+  const left = position.endsWith("-right") ? width * 0.39 : 90;
+  const right = position.endsWith("-left") ? width * 0.37 : 180;
+  const lines = captionLines(chunk.words, narrow ? 20 : 25);
+  const fontSize = Math.min(...lines.map((line) =>
+    captionFontSize(line.map((word) => word.text).join(" "), width - left - right - 60, 66, 28)));
+  const top = height * (position.startsWith("top") ? 0.27 : 0.76);
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px", paddingTop: showDiagram ? 920 : 0 }}>
-      <div
-        style={{
-          fontFamily: CAPTION_FONT,
-          fontSize,
-          lineHeight: 1.1,
-          color: "#ffffff",
-          textAlign: "center",
-          whiteSpace: "nowrap",
-          WebkitTextStroke: `${Math.round(fontSize * 0.11)}px #000000`,
-          paintOrder: "stroke fill",
-          textShadow: "0 8px 24px rgba(0,0,0,0.55)",
-        }}
-      >
-        {chunk.text}
-      </div>
-    </AbsoluteFill>
+    <div style={{
+      position: "absolute", top, left, right, transform: "translateY(-50%)",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
+      fontFamily: CAPTION_FONT, fontWeight: 700, fontSize, lineHeight: 1.38,
+    }}>
+      {lines.map((line, lineIndex) => (
+        <div key={lineIndex} style={{ display: "flex", justifyContent: "center", gap: fontSize * 0.28,
+          padding: "6px 20px", borderRadius: 18, background: "rgba(5, 13, 25, 0.78)",
+          boxShadow: "0 3px 18px rgba(0, 0, 0, 0.12)" }}>
+          {line.map((word, index) => {
+            const wordIndex = chunk.words.indexOf(word);
+            const emphasis = wordEmphasis(word, time, chunk.words[wordIndex + 1]?.start);
+            return (
+              <span key={index} style={{
+                display: "inline-block", whiteSpace: "nowrap", transform: `scale(${1 + 0.085 * emphasis})`,
+                color: `rgb(${Math.round(244 + 11 * emphasis)}, ${Math.round(247 - 28 * emphasis)}, ${Math.round(250 - 117 * emphasis)})`,
+                textShadow: "0 2px 5px rgba(0,0,0,0.25)",
+              }}>{word.text}</span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
   );
 };
 

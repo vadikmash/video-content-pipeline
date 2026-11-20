@@ -110,7 +110,7 @@ describe("WebResearch", () => {
 describe("Speech", () => {
   for (const p of providersFor("Speech")) {
     it(`${p.id}: synthesize returns audio bytes and monotonic words when present`, async () => {
-      const voiceId = process.env.ELEVENLABS_VOICE_ID ?? "default";
+      const voiceId = p.id === "tts-openai" ? "default" : process.env.ELEVENLABS_VOICE_ID ?? "default";
       const out = await p.make().synthesize("one two three four", { voiceId });
       expect(out.audio.byteLength).toBeGreaterThan(44);
       expect(out.contentType).toMatch(/^audio\//);

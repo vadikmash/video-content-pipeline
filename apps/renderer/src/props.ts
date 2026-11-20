@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.2.0";
+export const TEMPLATE_VERSION = "1.3.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
@@ -30,6 +30,7 @@ export const SceneProp = z.object({
   end: z.number(),
   text: z.string(),
   kind: z.enum(["type", "stock", "still", "clip", "diagram"]),
+  captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
   asset: SceneAsset.optional(),
   diagram: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("flow"), steps: z.array(z.object({ label: z.string(), detail: z.string() })) }),

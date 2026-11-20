@@ -1,9 +1,3 @@
-/**
- * Big centred captions: one word at a time, as it is said. A word spoken too
- * quickly to register on its own rides along with the next one.
- * Pure so it can be unit-tested.
- */
-
 export interface CaptionWord {
   text: string;
   start: number;
@@ -13,74 +7,86 @@ export interface CaptionWord {
 export interface CaptionChunk {
   words: CaptionWord[];
   text: string;
-  /** Seconds the chunk appears (its first word starts). */
   start: number;
-  /** Seconds it disappears: when the next chunk appears, or shortly after its last word. */
   end: number;
 }
 
 export interface ChunkOptions {
-  /** A chunk never grows past this many characters (one line at caption size). */
   maxChars: number;
-  /** Words this short join the next word. 0 keeps every word on its own, like the reference Shorts. */
-  shortWordChars: number;
-  /** A chunk shown for less than this joins the next one (avoids one-frame flashes). */
-  minSec: number;
-  /** How long the last chunk before a pause stays up after its word ends. */
+  maxWords: number;
+  maxSec: number;
   holdSec: number;
 }
 
-export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 14, shortWordChars: 0, minSec: 0.15, holdSec: 0.3 };
-
+export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 44, maxWords: 7, maxSec: 2.8, holdSec: 0.65 };
 const ENDS_SENTENCE = /[.!?…]["')\]]?$/;
+const ENDS_CLAUSE = /[,;:]["')\]]?$/;
+const STARTS_PHRASE = /^(a|an|the|in|of|to|and|with|for|from|at|by|or|its|that|through|into)$/i;
 
+/** Group complete phrases independently of scene cuts, retaining the original word timings. */
 export function captionChunks(words: readonly CaptionWord[], opts: ChunkOptions = DEFAULT_CHUNK_OPTIONS): CaptionChunk[] {
   const groups: CaptionWord[][] = [];
   let current: CaptionWord[] = [];
-
-  words.forEach((word, i) => {
+  for (const [index, word] of words.entries()) {
     current.push(word);
-    const next = words[i + 1];
-    const text = joinText(current);
-    const canGrow =
-      next !== undefined &&
-      !ENDS_SENTENCE.test(word.text) &&
-      text.length + 1 + next.text.length <= opts.maxChars &&
-      ((opts.shortWordChars > 0 && bare(word.text).length <= opts.shortWordChars) || next.start - current[0]!.start < opts.minSec);
-    if (!canGrow) {
-      groups.push(current);
-      current = [];
+    const next = words[index + 1];
+    const text = current.map((item) => item.text).join(" ");
+    const phraseEnds = ENDS_SENTENCE.test(word.text) || (current.length >= 3 && ENDS_CLAUSE.test(word.text));
+    const full = current.length >= opts.maxWords ||
+      (next !== undefined && text.length + 1 + next.text.length > opts.maxChars) ||
+      (next !== undefined && next.end - current[0]!.start > opts.maxSec);
+    const pause = next !== undefined && next.start - word.end > opts.holdSec;
+    if (!next || phraseEnds || full || pause) {
+      let split = current.length;
+      if (next && full && !phraseEnds && !pause) {
+        for (let candidate = current.length - 1; candidate >= Math.max(3, current.length - 2); candidate--) {
+          if (STARTS_PHRASE.test(current[candidate]!.text)) split = candidate;
+        }
+      }
+      groups.push(current.slice(0, split));
+      current = current.slice(split);
     }
-  });
-  if (current.length) groups.push(current);
-
-  return groups.map((g, i) => {
-    const start = g[0]!.start;
-    const lastEnd = g[g.length - 1]!.end;
-    const nextStart = groups[i + 1]?.[0]?.start;
-    // Stay up until the next chunk when it follows closely; otherwise linger briefly.
+  }
+  return groups.map((group, index) => {
+    const start = group[0]!.start;
+    const lastEnd = group[group.length - 1]!.end;
+    const nextStart = groups[index + 1]?.[0]?.start;
     const end = nextStart !== undefined && nextStart - lastEnd <= opts.holdSec ? nextStart : lastEnd + opts.holdSec;
-    return { words: g, text: joinText(g), start, end: Math.max(end, start) };
+    return { words: group, text: group.map((word) => word.text).join(" "), start, end: Math.max(start, end) };
   });
 }
 
-export function chunkAt(chunks: readonly CaptionChunk[], t: number): CaptionChunk | undefined {
-  return chunks.find((c) => t >= c.start && t < c.end);
+export function chunkAt(chunks: readonly CaptionChunk[], time: number): CaptionChunk | undefined {
+  return chunks.find((chunk) => time >= chunk.start && time < chunk.end);
 }
 
-/**
- * Font size that keeps a chunk on one line inside `width` pixels. Impact-style
- * faces are narrow, about 0.5em per character on average.
- */
+/** Fixed line membership prevents the active word's scale from reflowing its neighbours. */
+export function captionLines(words: readonly CaptionWord[], maxChars = 25): CaptionWord[][] {
+  const text = words.map((word) => word.text).join(" ");
+  if (text.length <= maxChars || words.length < 2) return [[...words]];
+  let split = 1;
+  let bestBalance = Infinity;
+  for (let index = 1; index < words.length; index++) {
+    const left = words.slice(0, index).map((word) => word.text).join(" ").length;
+    const right = words.slice(index).map((word) => word.text).join(" ").length;
+    const balance = Math.abs(left - right);
+    if (balance < bestBalance) {
+      bestBalance = balance;
+      split = index;
+    }
+  }
+  return [words.slice(0, split), words.slice(split)];
+}
+
 export function captionFontSize(text: string, width: number, max: number, min: number): number {
-  const fit = width / (Math.max(text.length, 1) * 0.5);
-  return Math.round(Math.max(min, Math.min(max, fit)));
+  return Math.round(Math.max(min, Math.min(max, width / (Math.max(text.length, 1) * 0.61))));
 }
 
-function joinText(words: readonly CaptionWord[]): string {
-  return words.map((w) => w.text).join(" ");
-}
-
-function bare(text: string): string {
-  return text.replace(/[^\p{L}\p{N}]/gu, "");
+/** Brief attack and release, evaluated in composition time so highlighting survives scene cuts. */
+export function wordEmphasis(word: CaptionWord, time: number, nextStart?: number): number {
+  const end = Math.min(nextStart ?? Infinity, Math.max(word.end, word.start + 0.12));
+  if (time < word.start || time >= end) return 0;
+  const attack = Math.min(1, (time - word.start) / 0.045);
+  const release = Math.min(1, (end - time) / 0.06);
+  return Math.max(0, Math.min(attack, release));
 }

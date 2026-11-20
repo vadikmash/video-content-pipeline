@@ -19,6 +19,7 @@ import * as publishYoutube from "@vcp/provider-publish-youtube";
 import * as renderRemotion from "@vcp/provider-render-remotion";
 import * as sourceManual from "@vcp/provider-source-manual";
 import * as stockPixabay from "@vcp/provider-stock-pixabay";
+import * as ttsOpenai from "@vcp/provider-tts-openai";
 import * as ttsElevenlabs from "@vcp/provider-tts-elevenlabs";
 
 /** Every provider in the tree. Fakes stay registered so dry-run and tests can swap back to them. */
@@ -33,6 +34,8 @@ export function createRegistry(): ProviderRegistry {
     .register(fakeResearch.manifest, fakeResearch.create)
     .register(fakeTts.manifest, fakeTts.create)
     .register(ttsElevenlabs.manifest, ttsElevenlabs.create)
+    .register(ttsOpenai.manifest, ttsOpenai.create)
+    .register(ttsOpenai.alignManifest, ttsOpenai.createAligner)
     .register(fakeAlign.manifest, fakeAlign.create)
     .register(alignElevenlabs.manifest, alignElevenlabs.create)
     .register(fakeStock.manifest, fakeStock.create)

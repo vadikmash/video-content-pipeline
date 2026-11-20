@@ -192,6 +192,7 @@ export const Scene = z.object({
   end: z.number().nonnegative(),
   visual: VisualIntent,
   assetId: Id.optional(),
+  captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
 });
 export type Scene = z.infer<typeof Scene>;
 
