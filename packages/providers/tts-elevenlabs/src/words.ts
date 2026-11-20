@@ -96,6 +96,10 @@ export function wordsFromCharacters(text: string, characters: string[], starts: 
  * separators, so pieces like "It" + "'s" still match "It's".
  */
 export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
+  return matchAlignedWords(text, timed).words;
+}
+
+export function matchAlignedWords(text: string, timed: TimedText[]): WordMatch {
   const characters: string[] = [];
   const starts: number[] = [];
   const ends: number[] = [];
@@ -111,7 +115,7 @@ export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
       ends.push(w.start + (span * (k + 1)) / chars.length);
     });
   }
-  return matchCharacters(text, characters, starts, ends, wordStarts).words;
+  return matchCharacters(text, characters, starts, ends, wordStarts);
 }
 
 /** Spread each run of unmatched tokens evenly between the matched words around it. */

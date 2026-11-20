@@ -89,6 +89,15 @@ function gateFunction(gate: GateName) {
       triggers: [triggerAfter(gate)],
       cancelOn: cancelOnReject,
       retries: 2,
+      onFailure: async ({ event }) => {
+        const original = event.data.event as { data?: { projectId?: string } };
+        const projectId = original.data?.projectId;
+        if (!projectId) return;
+        const project = await dbStore.getProject(projectId);
+        if (project?.currentStage === gate && project.status !== "rejected") {
+          await failProject(projectId, gate, event.data.error.message, dbStore);
+        }
+      },
     },
     async ({ event, step, runId }) => {
       const { projectId } = event.data;

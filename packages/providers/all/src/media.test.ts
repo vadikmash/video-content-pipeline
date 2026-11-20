@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createLocalBlobStore } from "@vcp/provider-blob-local";
+import { create as createOpenaiImage } from "@vcp/provider-image-openai";
 import { create as createFlux } from "@vcp/provider-image-flux";
 import { create as createPixabay } from "@vcp/provider-stock-pixabay";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -10,6 +11,7 @@ let dir: string;
 beforeEach(() => { dir = mkdtempSync(path.join(os.tmpdir(), "vcp-media-")); });
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   rmSync(dir, { recursive: true, force: true });
 });
 
@@ -59,4 +61,36 @@ it("resumes a submitted FLUX job after a polling failure and reuses the download
   expect(JSON.parse(String(submission?.body))).toMatchObject({ width: 1088, height: 1920, output_format: "png" });
   const download = fetch.mock.calls[3]?.[1];
   expect(download?.headers).toBeUndefined();
+});
+
+it("reuses a GPT Image result across adapter instances and retries a temporary generation failure", async () => {
+  const png = readFileSync(new URL("../../fake-image/fixtures/still.png", import.meta.url));
+  const fetch = vi.fn<typeof globalThis.fetch>()
+    .mockResolvedValueOnce(Response.json({error:{code:"server_error",message:"Temporary"}},{status:503}))
+    .mockResolvedValueOnce(Response.json({data:[{b64_json:png.toString("base64")}]}));
+  vi.stubGlobal("fetch",fetch);
+  const ctx={options:{},env:{OPENAI_API_KEY:"test"},blob:createLocalBlobStore({dir})};
+  const opts={requestId:"image-review-1",style:"flat-illustration"};
+  await expect(createOpenaiImage(ctx).generate("Moon",opts)).rejects.toMatchObject({status:503,retriable:true});
+  const image=await createOpenaiImage(ctx).generate("Moon",opts);
+  const reused=await createOpenaiImage(ctx).generate("Moon",opts);
+  expect(reused.blob).toEqual(image.blob);
+  expect(image).toMatchObject({synthetic:false,width:540,height:960});
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
+it("rejects malformed GPT Image data before saving it", async () => {
+  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({data:[{b64_json:Buffer.from("invalid").toString("base64")}]})));
+  const provider=createOpenaiImage({options:{},env:{OPENAI_API_KEY:"test"},blob:createLocalBlobStore({dir})});
+  await expect(provider.generate("Moon",{})).rejects.toMatchObject({status:502});
+});
+
+it("treats billing quota as permanent and rate limits as a deferred request", async () => {
+  const fetch=vi.fn<typeof globalThis.fetch>()
+    .mockResolvedValueOnce(Response.json({error:{code:"insufficient_quota",message:"No credits"}},{status:429}))
+    .mockResolvedValueOnce(Response.json({error:{code:"rate_limit_exceeded",message:"Slow down"}},{status:429,headers:{"retry-after":"2"}}));
+  vi.stubGlobal("fetch",fetch);
+  const provider=createOpenaiImage({options:{},env:{OPENAI_API_KEY:"test"},blob:createLocalBlobStore({dir})});
+  await expect(provider.generate("Moon",{})).rejects.toMatchObject({status:429,retriable:false});
+  await expect(provider.generate("Moon",{})).rejects.toMatchObject({providerId:"image-openai",retryAfterMs:2000});
 });

@@ -43,3 +43,12 @@ it("fails on missing word timestamps instead of silently using synthetic timings
   const aligner = createAligner({options:{},env:{OPENAI_API_KEY:"test"},blob:undefined!});
   await expect(aligner.align(new Uint8Array([1]),"hello")).rejects.toMatchObject({status:502});
 });
+
+it("rejects unrelated transcription text instead of interpolating the whole narration", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({words:[
+    {word:"unrelated",start:0,end:0.3},{word:"content",start:0.3,end:0.8},
+  ]})));
+  const aligner = createAligner({options:{},env:{OPENAI_API_KEY:"test"},blob:undefined!});
+  await expect(aligner.align(new Uint8Array([1]),"The Moon turns red during an eclipse."))
+    .rejects.toMatchObject({status:502});
+});

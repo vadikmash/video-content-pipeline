@@ -199,3 +199,20 @@ function makeWorldIdea() {
   w.cleanup();
   return w.idea;
 }
+
+it("clears a failed video approval reservation when its gate is retried", async () => {
+  const { failProject, markGateWaiting } = await import("../src/stages/runner");
+  const world = makeWorld();
+  try {
+    await world.store.upsertStage(world.project.id,"approve-video",{status:"running",artifactId:"approval-request"});
+    await failProject(world.project.id,"approve-video","Database retries exhausted",world.store);
+    expect((await world.store.getProject(world.project.id))?.status).toBe("failed");
+    await markGateWaiting(world.project.id,"approve-video",world.store);
+    const gate=await world.store.getStage(world.project.id,"approve-video");
+    expect(gate?.status).toBe("waiting");
+    expect(gate?.artifactId).toBeUndefined();
+    expect((await world.store.getProject(world.project.id))?.currentStage).toBe("approve-video");
+  } finally {
+    world.cleanup();
+  }
+});

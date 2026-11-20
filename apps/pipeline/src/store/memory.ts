@@ -83,7 +83,7 @@ export class MemoryStore implements Store {
       ...(patch.finishedAt !== undefined && { finishedAt: patch.finishedAt?.toISOString() }),
       ...(patch.attempt !== undefined && { attempt: patch.attempt }),
       ...(patch.error !== undefined && { error: patch.error ?? undefined }),
-      ...(patch.artifactId !== undefined && { artifactId: patch.artifactId }),
+      ...(patch.artifactId !== undefined && { artifactId: patch.artifactId ?? undefined }),
       ...(patch.runId !== undefined && { runId: patch.runId }),
     };
     this.stages.set(key, next);

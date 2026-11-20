@@ -13,6 +13,7 @@ import {
 } from "remotion";
 import { captionChunks, captionLines, chunkAt } from "./captions";
 import { CAPTION_FONT, captionFontReady } from "./fonts";
+import { visualTimeline, visualSequences } from "./visual-timeline";
 import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
@@ -55,7 +56,7 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
       ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
-      {timeline.map(({ scene, start, end, beatId }) => (
+      {visualSequences(timeline).map(({ scene, start, end, beatId }) => (
         <Sequence
           key={beatId}
           from={start}
@@ -75,27 +76,6 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
   );
 };
 
-function visualTimeline(scenes: SceneProp[], fps: number, duration: number) {
-  const sorted = [...scenes].sort((a, b) => a.start - b.start);
-  const hasVisual = (scene: SceneProp) => scene.diagram || scene.asset?.kind === "image" || scene.asset?.kind === "video";
-  const still = sorted.find((scene) => scene.asset?.kind === "image");
-  const firstVisual = sorted.find(hasVisual);
-  let previousVisual: SceneProp | undefined;
-  const intervals = sorted.flatMap((scene, index) => {
-    // The visual remains on screen through pauses and to the end of the Short.
-    const start = index === 0 ? 0 : Math.max(0, Math.round(scene.start * fps));
-    const next = sorted[index + 1];
-    const end = next ? Math.min(duration, Math.round(next.start * fps)) : duration;
-    if (end <= start) return [];
-    const visual = hasVisual(scene) ? scene : (scene.beatId === "outro" ? still : undefined) ?? previousVisual ?? firstVisual ?? scene;
-    if (hasVisual(scene)) previousVisual = scene;
-    return [{ scene: visual, start, end, beatId: scene.beatId }];
-  });
-  return intervals.length ? intervals : [{
-    scene: { beatId: "visual", kind: "type" as const, start: 0, end: duration / fps, text: "" },
-    start: 0, end: duration, beatId: "visual",
-  }];
-}
 
 const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
   const frame = useCurrentFrame();
@@ -189,8 +169,8 @@ const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visual
   const chunks = React.useMemo(() => captionChunks(words), [words]);
   const chunk = chunkAt(chunks, time);
   if (!chunk) return null;
-  const scene = timeline.find(({ start, end }) => frame >= start && frame < end)?.scene;
-  const position = scene?.captionPosition ?? "bottom";
+  const interval = timeline.find(({ start, end }) => frame >= start && frame < end);
+  const position = frame < Math.round(2.5 * fps) ? "bottom" : interval?.captionPosition ?? "bottom";
   const lines = captionLines(chunk.words);
   const top = height * (position.startsWith("top") ? 0.27 : 0.76);
   return (

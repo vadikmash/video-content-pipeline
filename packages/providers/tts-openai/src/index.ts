@@ -1,5 +1,5 @@
 import { defineManifest, inputHash, ProviderError, type Aligner, type ProviderContext, type Speech } from "@vcp/core";
-import { wordsFromAlignment } from "@vcp/provider-tts-elevenlabs";
+import { matchAlignedWords } from "@vcp/provider-tts-elevenlabs";
 import { z } from "zod";
 
 export const manifest = defineManifest({
@@ -53,7 +53,11 @@ export function createAligner(ctx: ProviderContext): Aligner {
       const response = await request(ctx, "transcriptions", form);
       const parsed = transcriptionSchema.safeParse(await response.json());
       if (!parsed.success) throw new ProviderError("OpenAI transcription returned no valid word timings", 502);
-      return wordsFromAlignment(text, parsed.data.words.map(({ word, start, end }) => ({ text: word, start, end })));
+      const match = matchAlignedWords(text, parsed.data.words.map(({ word, start, end }) => ({ text: word, start, end })));
+      if (match.matchedRatio < 0.85) {
+        throw new ProviderError("OpenAI word timings do not match enough of the narration script", 502);
+      }
+      return match.words;
     },
   };
 }

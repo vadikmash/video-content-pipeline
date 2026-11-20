@@ -16,7 +16,7 @@ const DEFAULT_MODEL = "eleven_multilingual_v2";
 /** Slightly faster than the voice's natural pace; ElevenLabs accepts 0.7-1.2. */
 export const DEFAULT_SPEED = 1.1;
 
-export { matchCharacters, wordsFromAlignment, wordsFromCharacters } from "./words";
+export { matchCharacters, matchAlignedWords, wordsFromAlignment, wordsFromCharacters } from "./words";
 
 export interface Alignment {
   characters?: string[];

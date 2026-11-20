@@ -77,7 +77,7 @@ export async function loadGateMode(projectId: string, gate: GateName, store: Sto
 }
 
 export async function markGateWaiting(projectId: string, gate: GateName, store: Store, runId?: string): Promise<void> {
-  await store.upsertStage(projectId, gate, { status: "waiting", startedAt: new Date(), finishedAt: null, error: null, runId });
+  await store.upsertStage(projectId, gate, { status: "waiting", startedAt: new Date(), finishedAt: null, error: null, artifactId: null, runId });
   await store.updateProject(projectId, { status: "waiting", currentStage: gate });
 }
 
