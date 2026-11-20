@@ -34,7 +34,7 @@ it("retains synthesized audio when alignment fails and returns the original scri
   expect(result.words?.map((word) => word.text)).toEqual(["The","Moon","glows."]);
   expect(result.audio).toEqual(bytes);
   expect(fetch).toHaveBeenCalledTimes(3);
-  expect(JSON.parse(String(fetch.mock.calls[0]![1]?.body))).toMatchObject({voice:"cedar",speed:1,model:"gpt-4o-mini-tts"});
+  expect(JSON.parse(String(fetch.mock.calls[0]![1]?.body))).toMatchObject({voice:"marin",speed:1.03,model:"gpt-4o-mini-tts"});
   expect(String(fetch.mock.calls[2]![0])).toContain("/transcriptions");
 });
 

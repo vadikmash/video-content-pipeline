@@ -27,4 +27,4 @@ The main checkout usually has `pnpm dev` up on :3000, :3001 and :8288. A worktre
 - Anthropic: current models reject forced `tool_choice` with a 400. `llm-anthropic` uses structured outputs (`output_config.format`) instead.
 - Remotion: with `<Audio loop>`, the `volume` callback's frame restarts every loop. Compute envelopes from `useCurrentFrame()` (`apps/renderer/src/music.ts`).
 - Narration pauses are shortened with ffmpeg after synthesis (`apps/pipeline/src/audio/pauses.ts`). Use temp files, not pipes: piped MP3 output keeps encoder padding, which puts the voice about 25ms behind the word timings.
-- Captions show phrases in bundled Inter at a fixed 64px, horizontally centered. Placement samples the portrait crop for quiet top or bottom areas. Scene.captionPosition overrides the automatic choice. OpenAI narration defaults to Cedar at speed 1.0. Pauses are capped at 0.25s.
+- Captions show phrases in bundled Inter at a fixed 64px, horizontally centered. Placement samples the portrait crop for quiet top or bottom areas. Scene.captionPosition overrides the automatic choice. OpenAI narration defaults to Marin at speed 1.03. Pauses are capped at 0.25s.

@@ -9,7 +9,7 @@ export const manifest = defineManifest({
   limits: { concurrency: 2 },
   attributionRequired: false,
   costModel: { unit: "character", approxUsd: 0 },
-  description: "OpenAI conversational narration, default Cedar, with Whisper word timestamps. OPENAI_TTS_VOICE and OPENAI_TTS_MODEL select the voice and model.",
+  description: "OpenAI conversational narration, default Marin, with Whisper word timestamps. OPENAI_TTS_VOICE and OPENAI_TTS_MODEL select the voice and model.",
 });
 
 export const alignManifest = defineManifest({
@@ -17,7 +17,7 @@ export const alignManifest = defineManifest({
   description: "Whisper word timestamps matched back to the original script.",
 });
 
-export const DEFAULT_INSTRUCTIONS = "Speak like a thoughtful, friendly science storyteller talking to one person. Use a warm, natural conversational tone, gentle curiosity, clear articulation and varied intonation. Keep an easy flowing pace with short pauses between ideas. Avoid a booming announcer voice or exaggerated excitement.";
+export const DEFAULT_INSTRUCTIONS = "Tell this science story with lively curiosity, as if sharing a surprising discovery with a friend. Use a warm, bright conversational voice, expressive but believable intonation, and crisp articulation. Give the opening question an inviting lift, stress the surprising details, and let the final explanation land with satisfaction. Keep a flowing, upbeat pace with short natural pauses between ideas.";
 
 const transcriptionSchema = z.object({
   words: z.array(z.object({
@@ -67,10 +67,10 @@ export function create(ctx: ProviderContext): Speech {
       const voiceId = voice.voiceId === "default" ? undefined : voice.voiceId;
       const body = {
         model: options.model ?? ctx.env.OPENAI_TTS_MODEL ?? "gpt-4o-mini-tts",
-        voice: voiceId ?? ctx.env.OPENAI_TTS_VOICE ?? "cedar",
+        voice: voiceId ?? ctx.env.OPENAI_TTS_VOICE ?? "marin",
         input: text,
         instructions: options.instructions ?? DEFAULT_INSTRUCTIONS,
-        speed: options.speed ?? 1,
+        speed: options.speed ?? 1.03,
         response_format: "mp3",
       };
       // Retain synthesis across alignment retries so a transient transcription error does not rebill speech.

@@ -32,7 +32,7 @@ Prereqs: Node 22+, pnpm 10, Docker, ffmpeg (Remotion downloads its own Chromium 
 Seed still maps every port to a fake. `pnpm providers:bind` rewrites a port only when its key is present in `.env`:
 
 - `OPENAI_API_KEY` binds `TextModel` to `llm-openai`. `LLM_PROVIDER=anthropic` plus `ANTHROPIC_API_KEY` binds `llm-anthropic` instead.
-- `TTS_PROVIDER=openai` with `OPENAI_API_KEY` binds conversational narration and word alignment. The default voice is Cedar at speed 1.0. Set `OPENAI_TTS_VOICE` or `OPENAI_TTS_MODEL` to customize it. Otherwise, `ELEVENLABS_API_KEY` binds `Speech` and `Aligner` using `ELEVENLABS_VOICE_ID`.
+- `TTS_PROVIDER=openai` with `OPENAI_API_KEY` binds conversational narration and word alignment. The default voice is Marin at speed 1.03. Set `OPENAI_TTS_VOICE` or `OPENAI_TTS_MODEL` to customize it. Otherwise, `ELEVENLABS_API_KEY` binds `Speech` and `Aligner` using `ELEVENLABS_VOICE_ID`.
 - `PIXABAY_KEY` binds `StockSearch` to Pixabay. Searches are cached for 24 hours. Selected portrait clips are downloaded to the project blob store.
 - `OPENAI_API_KEY` also binds `ImageGen` to GPT Image. If Pixabay has no clip, GPT Image generates an illustration. Set `OPENAI_IMAGE_MODEL` to override the default `gpt-image-2`.
 - `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, and `YOUTUBE_REFRESH_TOKEN` bind `Publisher`. Run `pnpm youtube:auth` once to print a refresh token (it is not written for you). The OAuth client needs redirect URI `http://127.0.0.1:8765/callback`. It asks for the `youtube` scope: `youtube.upload` alone can upload but not publish. Set the Google OAuth app's publishing status to **In production**; apps left in **Testing** get refresh tokens that expire after seven days, and publishing then fails with `invalid_grant`.

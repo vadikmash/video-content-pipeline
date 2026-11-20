@@ -25,7 +25,7 @@ async function main() {
 
   if (process.env.TTS_PROVIDER === "openai" || (!process.env.ELEVENLABS_API_KEY && process.env.OPENAI_API_KEY)) {
     if (process.env.OPENAI_API_KEY) {
-      await setPortBinding("Speech", "tts-openai", { voiceId: process.env.OPENAI_TTS_VOICE || "cedar", speed: 1 });
+      await setPortBinding("Speech", "tts-openai", { voiceId: process.env.OPENAI_TTS_VOICE || "marin", speed: 1.03 });
       await setPortBinding("Aligner", "align-openai");
       bound.push("Speech -> tts-openai", "Aligner -> align-openai");
     } else {
