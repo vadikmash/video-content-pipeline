@@ -10,7 +10,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
-import { captionChunks, captionFontSize, captionLines, chunkAt, wordEmphasis } from "./captions";
+import { captionChunks, captionLines, chunkAt } from "./captions";
 import { CAPTION_FONT } from "./fonts";
 import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
@@ -176,34 +176,23 @@ const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visual
   if (!chunk) return null;
   const scene = timeline.find(({ start, end }) => frame >= start && frame < end)?.scene;
   const position = scene?.captionPosition ?? "bottom";
-  const narrow = position.includes("-");
-  const left = position.endsWith("-right") ? width * 0.39 : 90;
-  const right = position.endsWith("-left") ? width * 0.37 : 180;
-  const lines = captionLines(chunk.words, narrow ? 20 : 25);
-  const fontSize = Math.min(...lines.map((line) =>
-    captionFontSize(line.map((word) => word.text).join(" "), width - left - right - 60, 66, 28)));
+  const lines = captionLines(chunk.words);
   const top = height * (position.startsWith("top") ? 0.27 : 0.76);
   return (
     <div style={{
-      position: "absolute", top, left, right, transform: "translateY(-50%)",
-      display: "flex", flexDirection: "column", alignItems: "center", gap: 12,
-      fontFamily: CAPTION_FONT, fontWeight: 700, fontSize, lineHeight: 1.38,
+      position: "absolute", top, left: width / 12, right: width / 12,
+      transform: "translateY(-50%)", display: "flex", flexDirection: "column",
+      alignItems: "center", gap: 12, color: "#f8fafc",
+      fontFamily: CAPTION_FONT, fontWeight: 700, fontSize: 64, lineHeight: 1.38,
+      textAlign: "center",
     }}>
-      {lines.map((line, lineIndex) => (
-        <div key={lineIndex} style={{ display: "flex", justifyContent: "center", gap: fontSize * 0.28,
-          padding: "6px 20px", borderRadius: 18, background: "rgba(5, 13, 25, 0.78)",
-          boxShadow: "0 3px 18px rgba(0, 0, 0, 0.12)" }}>
-          {line.map((word, index) => {
-            const wordIndex = chunk.words.indexOf(word);
-            const emphasis = wordEmphasis(word, time, chunk.words[wordIndex + 1]?.start);
-            return (
-              <span key={index} style={{
-                display: "inline-block", whiteSpace: "nowrap", transform: `scale(${1 + 0.085 * emphasis})`,
-                color: `rgb(${Math.round(244 + 11 * emphasis)}, ${Math.round(247 - 28 * emphasis)}, ${Math.round(250 - 117 * emphasis)})`,
-                textShadow: "0 2px 5px rgba(0,0,0,0.25)",
-              }}>{word.text}</span>
-            );
-          })}
+      {lines.map((line, index) => (
+        <div key={index} style={{
+          maxWidth: "100%", boxSizing: "border-box", overflowWrap: "anywhere",
+          padding: "6px 22px", borderRadius: 18, background: "rgba(5, 13, 25, 0.78)",
+          textShadow: "0 2px 5px rgba(0,0,0,0.25)",
+        }}>
+          {line.map((word) => word.text).join(" ")}
         </div>
       ))}
     </div>

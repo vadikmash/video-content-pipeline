@@ -60,7 +60,7 @@ export function chunkAt(chunks: readonly CaptionChunk[], time: number): CaptionC
   return chunks.find((chunk) => time >= chunk.start && time < chunk.end);
 }
 
-/** Fixed line membership prevents the active word's scale from reflowing its neighbours. */
+/** Balance phrase lines while preserving the original word timings. */
 export function captionLines(words: readonly CaptionWord[], maxChars = 25): CaptionWord[][] {
   const text = words.map((word) => word.text).join(" ");
   if (text.length <= maxChars || words.length < 2) return [[...words]];
@@ -76,17 +76,4 @@ export function captionLines(words: readonly CaptionWord[], maxChars = 25): Capt
     }
   }
   return [words.slice(0, split), words.slice(split)];
-}
-
-export function captionFontSize(text: string, width: number, max: number, min: number): number {
-  return Math.round(Math.max(min, Math.min(max, width / (Math.max(text.length, 1) * 0.61))));
-}
-
-/** Brief attack and release, evaluated in composition time so highlighting survives scene cuts. */
-export function wordEmphasis(word: CaptionWord, time: number, nextStart?: number): number {
-  const end = Math.min(nextStart ?? Infinity, Math.max(word.end, word.start + 0.12));
-  if (time < word.start || time >= end) return 0;
-  const attack = Math.min(1, (time - word.start) / 0.045);
-  const release = Math.min(1, (end - time) / 0.06);
-  return Math.max(0, Math.min(attack, release));
 }

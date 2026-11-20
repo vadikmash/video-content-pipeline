@@ -98,7 +98,10 @@ export async function toFactShortProps(
       const asset = scene.assetId ? input.bundle[scene.assetId] : undefined;
       const diagram = scene.visual.kind === "diagram" ? ProcessDiagram.safeParse(scene.visual.spec) : undefined;
       const assetUrl = asset ? await urlFor(asset.blob) : undefined;
-      let captionPosition = scene.captionPosition;
+      // Preserve the vertical preference of storyboards saved with corner placements.
+      let captionPosition: CaptionPosition | undefined = scene.captionPosition
+        ? (scene.captionPosition.startsWith("top") ? "top" : "bottom")
+        : undefined;
       if (!captionPosition && asset && assetUrl && (asset.kind === "image" || asset.kind === "video")) {
         const placementKey = `${asset.id}:${scene.start < 2.5 ? "title" : "clear"}`;
         let placement = placements.get(placementKey);

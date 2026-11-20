@@ -4,8 +4,8 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 const WIDTH = 108;
 const HEIGHT = 192;
-export type CaptionPosition = "top" | "bottom" | "top-left" | "top-right" | "bottom-left" | "bottom-right";
-const POSITIONS: CaptionPosition[] = ["bottom", "top", "bottom-left", "bottom-right", "top-left", "top-right"];
+export type CaptionPosition = "top" | "bottom";
+const POSITIONS: CaptionPosition[] = ["bottom", "top"];
 
 /** Score the same portrait crop the renderer uses. Edges and local contrast approximate visual detail. */
 export function quietCaptionPosition(frames: readonly Uint8Array[], allowTop = true): CaptionPosition {
@@ -18,8 +18,8 @@ export function quietCaptionPosition(frames: readonly Uint8Array[], allowTop = t
       let squares = 0;
       let edges = 0;
       let count = 0;
-      const left = position.endsWith("-right") ? 39 : 9;
-      const right = position.endsWith("-left") ? 63 : 90;
+      const left = 9;
+      const right = 99;
       for (let y = center - 15; y < center + 15; y++) {
         for (let x = left; x < right; x++) {
           const index = y * WIDTH + x;
@@ -33,9 +33,9 @@ export function quietCaptionPosition(frames: readonly Uint8Array[], allowTop = t
       scores.set(position, scores.get(position)! + Math.sqrt(Math.max(0, squares / count - (sum / count) ** 2)) + 2 * edges / count);
     }
   }
-  // Smaller corner captions need a meaningful reduction in detail to justify their narrower text.
+  // Prefer the lower safe area unless the upper area is meaningfully quieter.
   const score = (position: CaptionPosition) => scores.get(position)! / Math.max(frames.length, 1) +
-    (position.startsWith("top") ? 6 : 0) + (position.includes("-") ? 8 : 0);
+    (position === "top" ? 6 : 0);
   return POSITIONS.filter((position) => allowTop || !position.startsWith("top")).reduce((best, position) => score(position) < score(best) ? position : best, "bottom");
 }
 
