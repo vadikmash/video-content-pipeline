@@ -9,9 +9,10 @@ import {
   interpolate,
   useCurrentFrame,
   useVideoConfig,
+  useDelayRender,
 } from "remotion";
 import { captionChunks, captionLines, chunkAt } from "./captions";
-import { CAPTION_FONT } from "./fonts";
+import { CAPTION_FONT, captionFontReady } from "./fonts";
 import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
 import type { FactShortProps, SceneProp, WordProp } from "./props";
@@ -23,6 +24,20 @@ const FONT = "Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif";
 
 export const FactShort: React.FC<FactShortProps> = (props) => {
   const { fps } = useVideoConfig();
+  const { delayRender, continueRender, cancelRender } = useDelayRender();
+  React.useEffect(() => {
+    const handle = delayRender("Load caption font");
+    let active = true;
+    void captionFontReady.then(() => {
+      if (active) continueRender(handle);
+    }).catch((error) => {
+      if (active) cancelRender(error);
+    });
+    return () => {
+      active = false;
+      continueRender(handle);
+    };
+  }, [delayRender, continueRender, cancelRender]);
   const toFrames = (s: number) => Math.max(0, Math.round(s * fps));
   const frame = useCurrentFrame();
   const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
