@@ -1,6 +1,6 @@
 # video-content-pipeline
 
-Modular short-video pipeline. Design: [docs/tech-plan.md](docs/tech-plan.md). Current milestone: **M2** (storyboard planning, stock footage and illustrated stills, and asset replacement at video review). Fakes stay bound until you opt in; nothing paid is called by default.
+Local production pipeline for vertical factual Shorts. **M2 shipped** storyboard planning, stock and illustrated scenes, asset replacement and bilingual diagram rendering. Four reference cuts in English and Russian reached YouTube with additional manual production work. **M3 is planned** to let an editor make one Short in a chosen language, review a quick preview and cover, select a soundtrack and upload to a chosen YouTube channel. A second language can be requested separately. [M3 production plan](docs/m3-production-plan.md) · [Architecture and milestones](docs/tech-plan.md)
 
 ## Layout
 
@@ -22,14 +22,14 @@ Prereqs: Node 22+, pnpm 10, Docker, ffmpeg (Remotion downloads its own Chromium 
 
 1. `cp .env.example .env && pnpm install`
 2. `pnpm db:up` (Postgres 16 in Docker on :5432)
-3. `pnpm db:migrate && pnpm db:seed` (tables + default `providers_config` mapping every port to a fake)
+3. `pnpm db:migrate && pnpm db:seed` (tables and default provider bindings)
 4. `pnpm dev` starts the dashboard (:3000), the pipeline serve endpoint (:3001) and the Inngest dev server (:8288)
-5. Open <http://localhost:3000/ideas>. Use **Source from web** (or add an idea by hand), click **Select**, optionally edit the script at the approve-script gate, then approve each gate. The dashboard previews the Remotion render, and the fake publisher keeps the upload local.
+5. Open <http://localhost:3000/ideas>. Add an idea by hand or use **Source from web** for fixture ideas, click **Select**, optionally edit the script at the approve-script gate, then approve each gate. The dashboard previews the Remotion render, and the fake publisher keeps the upload local.
 6. First Remotion render downloads Chrome Headless Shell; run `pnpm browser:ensure` beforehand if needed.
 
 ## Real providers
 
-Seed still maps every port to a fake. `pnpm providers:bind` rewrites a port only when its key is present in `.env`:
+The seed uses local Remotion and local blob storage with fake content providers and publisher. Real providers are opt-in. Run `pnpm providers:bind` with the relevant settings in `.env`.
 
 - `OPENAI_API_KEY` binds `TextModel` to `llm-openai`. `LLM_PROVIDER=anthropic` plus `ANTHROPIC_API_KEY` binds `llm-anthropic` instead.
 - `TTS_PROVIDER=openai` with `OPENAI_API_KEY` binds conversational narration and word alignment. The default voice is Marin at speed 1.03. Set `OPENAI_TTS_VOICE` or `OPENAI_TTS_MODEL` to customize it. The default `TTS_PROVIDER=elevenlabs` uses `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID`. With `ELEVENLABS_MODEL=eleven_v3`, delivery uses natural pacing and stability 0.5.
@@ -41,7 +41,7 @@ Hand-pick an idea that has an evidence URL other than its origin post (or mark i
 
 Dry-run projects keep using fakes for every paid port.
 
-Explanatory diagrams include lunar refraction and orbital free fall. Their authored visual specs accept `language: "en" | "ru"` (English by default). Russian cuts use translated narration and labels with bundled Cyrillic Inter captions; narration word timings determine scene lengths independently for each language.
+The authored lunar-eclipse and orbital-freefall diagrams support English and Russian labels. Each cut uses its own narration timings and bundled Latin/Cyrillic Inter captions. M3 will add language selection, optional adaptations and diagram authoring to the dashboard.
 
 At video review, expand **Replace asset** on a stock or still scene. Enter new search terms or an illustration prompt and select **Replace and render**. The dashboard opens the new preview at the same approval gate. Pixabay and GPT Image record usage in Postgres and defer jobs after a rate-limit response.
 

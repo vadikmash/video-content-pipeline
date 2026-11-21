@@ -1,6 +1,6 @@
 # Tech plan: modular short-video pipeline
 
-Date: 2026-11-03. Companion to `research-short-video-pipeline.md`, which holds the sourced facts behind the limits quoted here.
+Original design dated 2026-11-03. Sections 1–9 describe the intended architecture, including capabilities still to build. M2 merged at `b2c165f`. The implementation audit and current delivery order are in the [M3 production plan](m3-production-plan.md). Historical provider research is in the [research notes](research-short-video-pipeline.md).
 
 ## 1. Verdict
 
@@ -26,7 +26,7 @@ packages/
     llm-openai, llm-anthropic (same port; swap by config)
     tts-elevenlabs, tts-edge
     align-elevenlabs, align-whisper (local, optional)
-    stock-pixabay, stock-pexels (adapter kept; keys currently paused)
+    stock-pixabay, stock-pexels (possible later adapter)
     image-flux, image-openai
     clip-kling, clip-gemini-omni (optional, last)
     render-remotion, render-shotstack (optional, later)
@@ -117,15 +117,15 @@ Every provider also exports a `ProviderManifest`:
 }
 ```
 
-The dashboard reads manifests to render the Providers page. The limits package reads them to enforce.
+A planned Providers page will display these manifests. The current persistent quota hooks cover real stock and image adapters.
 
-Provider selection is data, not code. A `pipeline_config` row maps each port to a provider id plus options. Changing `Speech` from `tts-elevenlabs` to `tts-edge` is an edit in the dashboard; the next run picks it up. Per-project overrides are allowed (one video with a different voice).
+Provider selection is data, not code. A `pipeline_config` row maps each port to a provider id plus options. The config repository supports per-project overrides. The current binding CLI can select ElevenLabs or OpenAI speech. Dashboard configuration is planned.
 
 What does not swap cleanly: the renderer. A Remotion template and a Shotstack JSON edit are different things. The storyboard schema is the contract both read, so a second renderer is possible, but it will not be pixel-identical. Accept that and treat Remotion as the template owner.
 
 ## 4. Pipeline
 
-Inngest, one function per stage, each stage a `step.run` with retries. Human stops are `step.waitForEvent` with a long timeout, so a run can sit for days at no cost. Each gate has an `auto` toggle in the dashboard; default is manual for the script and the video, auto for the rest.
+Inngest, one function per stage, each stage a `step.run` with retries. Human stops are `step.waitForEvent` with a long timeout, so a run can sit for days at no cost. The script, video and publish gates default to manual. The runner supports auto mode through stored configuration. Dashboard toggles are planned.
 
 ```
 cron 06:00      discover           every enabled IdeaSource; dedupe; write Idea rows
@@ -134,7 +134,7 @@ on idea.created score              TextModel ranks surprise / sourceability / sh
 GATE            select             you click Select; emits idea.selected
 on idea.selected
   research      WebResearch + TextModel -> Brief with evidence quotes
-  write         TextModel -> Script v1 with claims; second pass drops unsourced claims
+  write         TextModel -> Script v1 with claims; source filter checks claim URLs
 GATE            approve-script     you edit in the dashboard; emits script.approved {version}
   voice         Speech -> audio; Aligner -> word timings if Speech did not return them
   storyboard    TextModel maps beats to VisualIntent using the word timings
@@ -169,7 +169,7 @@ Per-provider notes the adapters encode:
 - YouTube Data API: 100 `videos.insert` and 100 `search.list` per day, 10,000 units for the rest. Discovery uses `videos.list chart=mostPopular` (1 unit) and `playlistItems.list`, never `search.list`. Uploads are resumable so a dropped connection resumes instead of spending another insert. `privacyStatus` is always set explicitly; the default is public. OAuth app should be set to "In production" status even while unverified; apps left in "Testing" get refresh tokens that expire after seven days (verify against Google's current OAuth docs when you set it up).
 - Reddit: OAuth script app, unique descriptive User-Agent, 100 queries per minute, register the app before 12 Jan 2027. Read only. Cache listings; a once-daily pull of a few subreddits is well under limits. Commercial use of the content itself needs Reddit's separate agreement; the pipeline stores evidence quotes and links, not reposted bodies.
 - Wikimedia: feed and REST endpoints, descriptive User-Agent with contact, modest rate, zero-padded dates. CC BY-SA attribution for quoted text.
-- Pixabay: 100 requests per minute, responses cached 24 hours (required by their terms), files downloaded to your blob store rather than hotlinked, attribution shown wherever results appear. Pexels adapter kept in the tree; new keys are paused.
+- Pixabay: 100 requests per minute, responses cached 24 hours (required by their terms), files downloaded to your blob store rather than hotlinked, attribution shown wherever results appear. Pexels is a possible future adapter. Verify access before implementing it.
 - ElevenLabs: plan-based character quota and concurrency; the ledger counts characters per month and warns at 80 percent. Forced alignment is a separate call with its own cost.
 - LLMs and image models: provider SDK retry with backoff; the ledger counts tokens for cost display rather than enforcement.
 
@@ -199,17 +199,19 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 ## 9. Testing
 
 - Contract tests per port, run against both the fake and the real provider (real ones gated behind an env flag).
-- A golden end-to-end test: manual idea → fake providers → a real Remotion render of a placeholder video → fake publisher. Runs in CI in a few minutes and proves the pipeline wiring.
+- A golden end-to-end test: manual idea → fake providers → a real Remotion render of a placeholder video → fake publisher. Runs locally against the work stages. CI and a full dashboard-to-orchestrator test are planned.
 - `dry-run` mode on any project: executes everything up to render with fakes for paid providers, so you can check a storyboard without spending credits.
 
 ## 10. Milestones
 
-- M0, week 1. Monorepo, core schemas and ports, DB, fakes for every port, Inngest locally, dashboard with Ideas inbox and manual add. A selected idea runs end to end on fakes and produces a placeholder MP4. Nothing paid is called.
-- M1, weeks 2–3. Real script with claims (one LLM provider), ElevenLabs voice and alignment, Remotion template v1 (typography, captions, music, source card), local render, YouTube upload as private, publish from the dashboard. First real video. Do five of these by hand-picking ideas before adding research.
-- M2, week 4. Pixabay stock, GPT Image stills, storyboard planner, review page with asset replacement, quota ledger and circuit breakers live.
-- M3, week 5. Discovery sources: Wikimedia, YouTube most-popular, Reddit (after app registration). Scoring and dedupe.
-- M4, week 6. Deploy. Scheduling via `publishAt`. Pull YouTube Analytics per video back into the ideas table so scoring can learn from what worked.
-- Later, only if a beat needs it: clip generation (Kling or Gemini Omni), second renderer, second voice provider.
+| Stage | Status and outcome |
+| --- | --- |
+| M0 · Local skeleton | Shipped. Manual Ideas inbox, local orchestration and persistence, provider fakes and a golden render path. |
+| M1 · Real production stages | Shipped the source-backed script workflow, real voice/alignment, local Remotion renderer, private YouTube upload and manual publishing gate. |
+| M2 · Visual production | Shipped Pixabay, GPT Image, storyboard planning, stock/still replacement, and quota/circuit handling for stock and image generation. Four reference cuts in English and Russian used additional manual work. |
+| **M3 · Selectable language and channel** | **Next.** Produce one Short in the chosen language, select its YouTube destination, edit explanations, review a quick preview and cover, select licensed music and approve that version for private upload. Request an adaptation only when desired. See the [implementation order and release rehearsal](m3-production-plan.md). |
+| M4 · Discovery and research | Former M3 scope. Build real sources and web research, scoring and semantic deduplication behind the existing inbox, manual trigger and daily cron. This work can run in parallel with M3 using the shared idea, evidence and selection contract. |
+| M5 · Operations, deployment and feedback | Former M4 scope. Deploy with access control, migration and deployment CI, shared storage, recovery and observability. Harden scheduling and add YouTube Analytics feedback per idea, language and destination channel. |
 
 ## 11. Decisions already made and why
 
@@ -219,17 +221,17 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 - Stock before generation: cheaper, faster, and YouTube's disclosure rule never applies.
 - Explicit selection gate: it is both your product requirement and the thing that keeps the channel out of the inauthentic-content bucket.
 
-## 12. Open choices for you
+## 12. Open choices
 
-- Hosting for phase 2 (Render, Fly, VPS). Nothing in phase 1 depends on it.
-- First LLM provider and first voice. The ports do not care; the template and the voice do.
-- Whether research-found ideas may be auto-shortlisted, or whether everything stays `new` until you look.
+M3 makes one Short per request, initially supporting English and Russian. Choose language and destination independently. During setup the owner may connect multiple YouTube channels and specify overridable language defaults. Manual approvals and voice-only output remain the starting settings. A soundtrack reference, a spatial explanation for the first 3D trial and an intended release time support channel acceptance. Hosting and discovery auto-shortlisting decisions belong to later milestones. [Channel owner input](m3-production-plan.md#input-from-the-channel-owner)
 
 ## 13. Technical debt
 
-- Black Forest Labs. Verify authentication and the existing FLUX adapter against the live API before making it a supported provider.
-- fal. Add a FLUX adapter using `FAL_KEY` and verify generation, retries, and quota handling.
-
-- Preview creation. Add thumbnail/cover creation and quick low-resolution video previews before full renders.
-- 3D animations. Add reusable 3D scenes for explanations that need depth, perspective, or spatial interaction.
-- Background music (next stage). Add track selection/upload, audition previews, loudness matching, and license/credit metadata. Looping, fades, and speech ducking already work with an optional bed.mp3; no soundtrack has been supplied for the test videos.
+| Item | Disposition |
+| --- | --- |
+| Language and channel selection | M3. Persist the chosen language and destination, verify channel identity before remote writes, scope upload recovery by channel and render, and reconcile legacy uploads in place. |
+| Thumbnail / cover and quick video preview | M3. Create an editable portrait cover plus a quick lower-resolution preview before full rendering. The current full-render JPEG is a poster frame. Verify how the chosen cover appears on Shorts. |
+| Background music | M3. Reuse local looping, fades and speech ducking. Add per-cut track upload/selection, audition, levels and license/credit metadata. |
+| 3D animations | After M3 storyboard authoring, trial one reusable spatial explanation against the existing 2D path. |
+| Black Forest Labs FLUX and fal FLUX | Optional. The existing BFL adapter requires live authentication and generation verification. fal needs implementation plus retry/quota verification. GPT Image is the primary still provider. |
+| Operational and provider breadth | Carry real discovery, research, scoring, scheduling verification, provider budgets, configuration and run views, deployment, analytics and optional adapters into the [parallel and later work](m3-production-plan.md#parallel-and-later-work). |
