@@ -208,10 +208,10 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 | --- | --- |
 | M0 · Local skeleton | Shipped. Manual Ideas inbox, local orchestration and persistence, provider fakes and a golden render path. |
 | M1 · Real production stages | Shipped the source-backed script workflow, real voice/alignment, local Remotion renderer, private YouTube upload and manual publishing gate. |
-| M2 · Visual production | Shipped Pixabay, GPT Image, storyboard planning, stock/still replacement, and quota/circuit handling for stock and image generation. Four bilingual reference cuts used additional manual work. |
-| **M3 · Repeatable bilingual production** | **Next.** Linked cuts, editable explanations, quick previews, designed covers, licensed music selection and version-specific private upload from the dashboard. See the [implementation order and release rehearsal](m3-production-plan.md). |
-| M4 · Discovery and research | Former M3 scope. Build real sources and web research, scoring and semantic deduplication behind the existing inbox, manual trigger and daily cron. |
-| M5 · Operations, deployment and feedback | Former M4 scope. Deploy with access control, migration and deployment CI, shared storage, recovery and observability. Harden scheduling and add YouTube Analytics feedback per idea and language cut. |
+| M2 · Visual production | Shipped Pixabay, GPT Image, storyboard planning, stock/still replacement, and quota/circuit handling for stock and image generation. Four reference cuts in English and Russian used additional manual work. |
+| **M3 · Selectable language and channel** | **Next.** Produce one Short in the chosen language, select its YouTube destination, edit explanations, review a quick preview and cover, select licensed music and approve that version for private upload. Request an adaptation only when desired. See the [implementation order and release rehearsal](m3-production-plan.md). |
+| M4 · Discovery and research | Former M3 scope. Build real sources and web research, scoring and semantic deduplication behind the existing inbox, manual trigger and daily cron. This work can run in parallel with M3 using the shared idea, evidence and selection contract. |
+| M5 · Operations, deployment and feedback | Former M4 scope. Deploy with access control, migration and deployment CI, shared storage, recovery and observability. Harden scheduling and add YouTube Analytics feedback per idea, language and destination channel. |
 
 ## 11. Decisions already made and why
 
@@ -223,14 +223,15 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 
 ## 12. Open choices
 
-M3 defaults to one channel, optional Russian siblings for English cuts, manual approvals and voice-only output unless a licensed track is selected. A soundtrack reference, a spatial explanation for the first 3D trial and an intended release time support channel acceptance. Hosting and discovery auto-shortlisting decisions belong to later milestones. [Channel owner input](m3-production-plan.md#input-from-the-channel-owner)
+M3 makes one Short per request, initially supporting English and Russian. Choose language and destination independently. During setup the owner may connect multiple YouTube channels and specify overridable language defaults. Manual approvals and voice-only output remain the starting settings. A soundtrack reference, a spatial explanation for the first 3D trial and an intended release time support channel acceptance. Hosting and discovery auto-shortlisting decisions belong to later milestones. [Channel owner input](m3-production-plan.md#input-from-the-channel-owner)
 
 ## 13. Technical debt
 
 | Item | Disposition |
 | --- | --- |
+| Language and channel selection | M3. Persist the chosen language and destination, verify channel identity before remote writes, scope upload recovery by channel and render, and reconcile legacy uploads in place. |
 | Thumbnail / cover and quick video preview | M3. Create an editable portrait cover plus a quick lower-resolution preview before full rendering. The current full-render JPEG is a poster frame. Verify how the chosen cover appears on Shorts. |
 | Background music | M3. Reuse local looping, fades and speech ducking. Add per-cut track upload/selection, audition, levels and license/credit metadata. |
 | 3D animations | After M3 storyboard authoring, trial one reusable spatial explanation against the existing 2D path. |
 | Black Forest Labs FLUX and fal FLUX | Optional. The existing BFL adapter requires live authentication and generation verification. fal needs implementation plus retry/quota verification. GPT Image is the primary still provider. |
-| Operational and provider breadth | Carry real discovery, research, scoring, scheduling verification, provider budgets, configuration and run views, deployment, analytics and optional adapters into the [post-M3 backlog](m3-production-plan.md#work-after-m3). |
+| Operational and provider breadth | Carry real discovery, research, scoring, scheduling verification, provider budgets, configuration and run views, deployment, analytics and optional adapters into the [parallel and later work](m3-production-plan.md#parallel-and-later-work). |

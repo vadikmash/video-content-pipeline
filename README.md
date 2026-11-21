@@ -1,6 +1,6 @@
 # video-content-pipeline
 
-Local production pipeline for vertical factual Shorts. **M2 shipped** storyboard planning, stock and illustrated scenes, asset replacement and bilingual diagram rendering. Four English/Russian reference cuts reached YouTube with additional manual production work. **M3 is planned** to bring the entire bilingual workflow into the dashboard, including quick previews, covers and soundtrack selection. [M3 production plan](docs/m3-production-plan.md) · [Architecture and milestones](docs/tech-plan.md)
+Local production pipeline for vertical factual Shorts. **M2 shipped** storyboard planning, stock and illustrated scenes, asset replacement and bilingual diagram rendering. Four reference cuts in English and Russian reached YouTube with additional manual production work. **M3 is planned** to let an editor make one Short in a chosen language, review a quick preview and cover, select a soundtrack and upload to a chosen YouTube channel. A second language can be requested separately. [M3 production plan](docs/m3-production-plan.md) · [Architecture and milestones](docs/tech-plan.md)
 
 ## Layout
 
@@ -41,7 +41,7 @@ Hand-pick an idea that has an evidence URL other than its origin post (or mark i
 
 Dry-run projects keep using fakes for every paid port.
 
-The authored lunar-eclipse and orbital-freefall diagrams support English and Russian labels. Each cut uses its own narration timings and bundled Latin/Cyrillic Inter captions. M3 will add linked language cuts and diagram authoring to the dashboard.
+The authored lunar-eclipse and orbital-freefall diagrams support English and Russian labels. Each cut uses its own narration timings and bundled Latin/Cyrillic Inter captions. M3 will add language selection, optional adaptations and diagram authoring to the dashboard.
 
 At video review, expand **Replace asset** on a stock or still scene. Enter new search terms or an illustration prompt and select **Replace and render**. The dashboard opens the new preview at the same approval gate. Pixabay and GPT Image record usage in Postgres and defer jobs after a rate-limit response.
 
