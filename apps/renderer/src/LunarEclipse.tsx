@@ -3,6 +3,11 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 
 type Focus = "alignment" | "refraction" | "dispersion" | "scattering" | "illumination";
 type Point = { x: number; y: number };
+const LABELS = {
+  en: { sun: "Sun", earth: "Earth", moon: "Moon", air: "Air", disclaimer: "Diagram · not to scale" },
+  ru: { sun: "Солнце", earth: "Земля", moon: "Луна", air: "Воздух", disclaimer: "Схема · не в масштабе" },
+};
+type Labels = typeof LABELS.en;
 const RED = "#ff9678";
 const BLUE = "#69caff";
 const WHITE = "#fff0cf";
@@ -22,7 +27,8 @@ function curvePath(points: typeof RED_CURVE | typeof BLUE_CURVE): string {
   return `M${points[0]} C${points[1]} ${points[2]} ${points[3]}`;
 }
 
-export function LunarEclipse({ focus }: { focus: Focus }) {
+export function LunarEclipse({ focus, language = "en" }: { focus: Focus; language?: "en" | "ru" }) {
+  const labels = LABELS[language];
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const phase = frame / fps;
@@ -55,10 +61,10 @@ export function LunarEclipse({ focus }: { focus: Focus }) {
             r={1 + index % 3 * 0.4} fill="#d5e8ff" opacity={0.1 + index % 5 * 0.06} />
         ))}
         <g transform="translate(0 524) scale(1.2)">
-          {overview ? <Overview illuminated={focus === "illumination"} phase={phase} /> : <Atmosphere focus={focus} phase={phase} />}
+          {overview ? <Overview illuminated={focus === "illumination"} phase={phase} labels={labels} /> : <Atmosphere focus={focus} phase={phase} labels={labels} />}
         </g>
-        <text x="1056" y="1220" textAnchor="end" fill="#9bb5c9" fontSize="19" fontFamily="Inter, sans-serif">
-          Diagram · not to scale
+        <text x="1056" y="1470" textAnchor="end" fill="#9bb5c9" fontSize="19" fontFamily="Inter, Inter Cyrillic, sans-serif" fontWeight="700">
+          {labels.disclaimer}
         </text>
       </svg>
     </AbsoluteFill>
@@ -77,10 +83,10 @@ function Ray({ path, color, phase, opacity = 1 }: { path: string; color: string;
 }
 
 function Label({ x, y, children }: { x: number; y: number; children: React.ReactNode }) {
-  return <text x={x} y={y} fill="#dbeaf5" fontSize="28" fontFamily="Inter, sans-serif" textAnchor="middle">{children}</text>;
+  return <text x={x} y={y} fill="#dbeaf5" fontSize="28" fontFamily="Inter, Inter Cyrillic, sans-serif" fontWeight="700" textAnchor="middle">{children}</text>;
 }
 
-function Overview({ illuminated, phase }: { illuminated: boolean; phase: number }) {
+function Overview({ illuminated, phase, labels }: { illuminated: boolean; phase: number; labels: Labels }) {
   const moonY = illuminated ? 330 : 330 + Math.max(0, 1 - phase / 2) * 115;
   const redOpacity = illuminated ? Math.min(1, phase * 1.5) : 0;
   return (
@@ -109,12 +115,12 @@ function Overview({ illuminated, phase }: { illuminated: boolean; phase: number 
       <g fill="#332a32" opacity="0.28">
         <circle cx="809" cy={moonY - 10} r="12" /><circle cx="833" cy={moonY + 9} r="15" />
       </g>
-      <Label x={80} y={445}>Sun</Label><Label x={460} y={465}>Earth</Label><Label x={820} y={moonY + 100}>Moon</Label>
+      <Label x={80} y={445}>{labels.sun}</Label><Label x={460} y={465}>{labels.earth}</Label><Label x={820} y={moonY + 100}>{labels.moon}</Label>
     </>
   );
 }
 
-function Atmosphere({ focus, phase }: { focus: "refraction" | "dispersion" | "scattering"; phase: number }) {
+function Atmosphere({ focus, phase, labels }: { labels: Labels; focus: "refraction" | "dispersion" | "scattering"; phase: number }) {
   const colors = focus !== "refraction";
   const scattering = focus === "scattering";
   return (
@@ -126,7 +132,7 @@ function Atmosphere({ focus, phase }: { focus: "refraction" | "dispersion" | "sc
           r={2 + depth * 2} fill="#9cb4c8" opacity={0.08 + depth * 0.2} />;
       })}
       <path d="M20 545 Q450 395 880 545 V575 H20 Z" fill="#22516a" />
-      <Label x={75} y={30}>Air</Label><Label x={450} y={565}>Earth</Label>
+      <Label x={75} y={30}>{labels.air}</Label><Label x={450} y={565}>{labels.earth}</Label>
       <Ray path={curvePath(RED_CURVE)} color={colors ? RED : WHITE} phase={phase} />
       {colors ? <Ray path={curvePath(BLUE_CURVE)} color={scattering ? "url(#eclipse-blue-fade)" : BLUE} phase={phase * 0.96} /> : null}
       {!colors ? Array.from({ length: 7 }, (_, index) => {

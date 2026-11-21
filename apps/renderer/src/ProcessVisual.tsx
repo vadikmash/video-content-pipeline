@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { OrbitalFreefall } from "./OrbitalFreefall";
 import { LunarEclipse } from "./LunarEclipse";
 import type { SceneProp } from "./props";
 
@@ -13,7 +14,8 @@ const ACTIVE = "#fbbf24";
 export const ProcessVisual: React.FC<{ diagram: Diagram }> = ({ diagram }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
-  if (diagram.kind === "lunar-eclipse") return <LunarEclipse focus={diagram.focus} />;
+  if (diagram.kind === "lunar-eclipse") return <LunarEclipse focus={diagram.focus} language={diagram.language} />;
+  if (diagram.kind === "orbital-freefall") return <OrbitalFreefall focus={diagram.focus} language={diagram.language} />;
   if (diagram.kind === "octopus-circulation") {
     return <OctopusCirculation focus={diagram.focus} phase={frame / fps} />;
   }

@@ -41,6 +41,8 @@ Hand-pick an idea that has an evidence URL other than its origin post (or mark i
 
 Dry-run projects keep using fakes for every paid port.
 
+Explanatory diagrams include lunar refraction and orbital free fall. Their authored visual specs accept `language: "en" | "ru"` (English by default). Russian cuts use translated narration and labels with bundled Cyrillic Inter captions; narration word timings determine scene lengths independently for each language.
+
 At video review, expand **Replace asset** on a stock or still scene. Enter new search terms or an illustration prompt and select **Replace and render**. The dashboard opens the new preview at the same approval gate. Pixabay and GPT Image record usage in Postgres and defer jobs after a rate-limit response.
 
 ## Tests

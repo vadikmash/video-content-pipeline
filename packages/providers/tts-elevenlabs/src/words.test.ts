@@ -147,3 +147,13 @@ describe("wordsFromAlignment without punctuation", () => {
     ]);
   });
 });
+
+it("keeps Cyrillic word timings after punctuation and sentence boundaries", () => {
+  const text = "Земля притягивает Луну. Синий свет рассеивается сильнее.";
+  const s = stream(text);
+  const matched = matchCharacters(text, s.characters, s.starts, s.ends);
+  expect(matched.matchedRatio).toBe(1);
+  expect(matched.words.map(w => w.text)).toEqual(text.split(" "));
+  const start = [...text].indexOf("С");
+  expect(matched.words[3]!.start).toBeCloseTo(s.starts[start]!, 3);
+});
