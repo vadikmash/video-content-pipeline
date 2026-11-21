@@ -23,6 +23,7 @@ export function create(_ctx: ProviderContext): StockSearch {
   return {
     id: manifest.id,
     async search(q, opts) {
+      if ((opts.minDurationSec ?? 0) > 4 || (opts.orientation && opts.orientation !== "portrait")) return [];
       const id = `fake-stock-${slug(q)}`;
       const asset: Asset = {
         id,

@@ -2,7 +2,9 @@ import http from "node:http";
 import { serve } from "inngest/node";
 import { functions } from "./functions";
 import { inngest } from "./inngest";
+import { configureQuotaLedger } from "./quota";
 
+configureQuotaLedger();
 const port = Number(process.env.PIPELINE_PORT ?? 3001);
 const servePath = "/api/inngest";
 

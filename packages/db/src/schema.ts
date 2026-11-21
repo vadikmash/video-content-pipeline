@@ -244,7 +244,7 @@ export const quotaLedger = pgTable(
   {
     id: serial("id").primaryKey(),
     provider: text("provider").notNull(),
-    windowKind: text("window_kind").notNull(), // minute | day | month
+    windowKind: text("window_kind").notNull(), // minute | day | month | circuit
     windowStart: ts("window_start").notNull(),
     used: integer("used").notNull().default(0),
     limit: integer("limit"),

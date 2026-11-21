@@ -1,13 +1,11 @@
 import { loadFont } from "@remotion/fonts";
-import antonUrl from "@fontsource/anton/files/anton-latin-400-normal.woff2";
+import interUrl from "@fontsource/inter/files/inter-latin-700-normal.woff2";
 
-/**
- * Caption face. Impact is used when the render machine has it (macOS, Windows);
- * Anton is an open-licensed (OFL) near-identical fallback bundled for Linux render hosts.
- * Anton covers Latin only: Cyrillic captions would fall back to the system font.
- */
-export const CAPTION_FONT = "Impact, Anton, 'Arial Black', sans-serif";
+import cyrillicUrl from "@fontsource/inter/files/inter-cyrillic-700-normal.woff2";
 
-export const captionFontReady = loadFont({ family: "Anton", url: antonUrl, weight: "400" }).catch(() => {
-  // Rendering continues with Impact or the system fallback.
-});
+export const CAPTION_FONT = "Inter, Inter Cyrillic, Arial, sans-serif";
+
+export const captionFontReady = Promise.all([
+  loadFont({ family: "Inter", url: interUrl, weight: "700" }),
+  loadFont({ family: "Inter Cyrillic", url: cyrillicUrl, weight: "700" }),
+]);

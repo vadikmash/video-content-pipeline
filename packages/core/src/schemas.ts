@@ -96,10 +96,31 @@ export type BriefDraft = z.infer<typeof BriefDraft>;
 // Script
 // ---------------------------------------------------------------------------
 
-export const VisualIntent = z.discriminatedUnion("kind", [
+const storyboardVisuals = [
   z.object({ kind: z.literal("type") }),
   z.object({ kind: z.literal("stock"), query: z.string().min(1), orientation: z.literal("portrait") }),
   z.object({ kind: z.literal("still"), prompt: z.string().min(1), style: z.string().min(1) }),
+] as const;
+
+export const StoryboardVisual = z.discriminatedUnion("kind", storyboardVisuals);
+
+export const FlowDiagram = z.object({
+  kind: z.literal("flow"),
+  steps: z.array(z.object({
+    label: z.string().trim().min(1).max(48),
+    detail: z.string().trim().min(1).max(80),
+  })).min(2).max(4),
+});
+
+export const ProcessDiagram = z.discriminatedUnion("kind", [
+  FlowDiagram,
+  z.object({ kind: z.literal("orbital-freefall"), focus: z.enum(["cabin", "gravity", "falling", "orbit"]), language: z.enum(["en", "ru"]).optional() }),
+  z.object({ kind: z.literal("lunar-eclipse"), focus: z.enum(["alignment", "refraction", "dispersion", "scattering", "illumination"]), language: z.enum(["en", "ru"]).optional() }),
+  z.object({ kind: z.literal("octopus-circulation"), focus: z.enum(["gills", "body", "cycle"]) }),
+]);
+
+export const VisualIntent = z.discriminatedUnion("kind", [
+  ...storyboardVisuals,
   z.object({ kind: z.literal("clip"), prompt: z.string().min(1), seconds: z.number().positive() }),
   z.object({ kind: z.literal("diagram"), spec: z.record(z.string(), z.unknown()) }),
 ]);
@@ -173,6 +194,7 @@ export const Scene = z.object({
   end: z.number().nonnegative(),
   visual: VisualIntent,
   assetId: Id.optional(),
+  captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
 });
 export type Scene = z.infer<typeof Scene>;
 

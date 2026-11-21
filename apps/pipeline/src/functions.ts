@@ -1,5 +1,5 @@
 import { GATES, GATE_EVENTS, STAGES, isGate, previousStage, type GateName, type StageName } from "@vcp/core";
-import { insertIdea, listIdeas, loadPipelineConfig, logEvent } from "@vcp/db";
+import { acceptVideoApproval, insertIdea, listIdeas, loadPipelineConfig, logEvent, releaseVideoReview } from "@vcp/db";
 import { registry } from "@vcp/providers";
 import { runDiscovery } from "@vcp/providers/discover";
 import { mapError } from "./errors";
@@ -8,6 +8,7 @@ import {
   WORK_STAGES,
   approveGate,
   failProject,
+  failGateRun,
   loadGateMode,
   markGateTimedOut,
   markGateWaiting,
@@ -16,6 +17,7 @@ import {
   type StageDef,
 } from "./stages/index";
 import { dbStore } from "./store/db";
+import { replaceReviewedAsset } from "./stages/replace-asset";
 
 const deps = { store: dbStore, registry };
 
@@ -41,7 +43,11 @@ function stageFunction(def: StageDef<any>) {
       triggers: [triggerAfter(def.name)],
       cancelOn: cancelOnReject,
       retries: 3,
-      concurrency: def.name === "render" ? { limit: 1 } : { limit: 4 },
+      concurrency: def.name === "render"
+        ? { limit: 1, key: '"video-render"', scope: "env" }
+        : def.name === "assets"
+          ? { limit: 1, key: '"visual-assets"', scope: "env" }
+          : { limit: 4 },
       onFailure: async ({ event }) => {
         const original = event.data.event as { data?: { projectId?: string } };
         const projectId = original?.data?.projectId;
@@ -84,6 +90,12 @@ function gateFunction(gate: GateName) {
       triggers: [triggerAfter(gate)],
       cancelOn: cancelOnReject,
       retries: 2,
+      onFailure: async ({ event }) => {
+        const original = event.data.event as { data?: { projectId?: string } };
+        const projectId = original.data?.projectId;
+        if (!projectId) return;
+        await failGateRun(projectId, gate, event.data.run_id, event.data.error.message, dbStore);
+      },
     },
     async ({ event, step, runId }) => {
       const { projectId } = event.data;
@@ -91,6 +103,24 @@ function gateFunction(gate: GateName) {
 
       if (mode === "auto") {
         await step.run("auto-approve", () => approveGate(projectId, gate, "auto", {}, dbStore));
+      } else if (gate === "approve-video") {
+        await step.run("mark-waiting", () => markGateWaiting(projectId, gate, dbStore, runId));
+        for (let revision = 0; ; revision++) {
+          const suffix = revision === 0 ? "" : `-${revision}`;
+          const approval = await step.waitForEvent(`wait-for-approval${suffix}`, {
+            event: events.renderApproved, match: "data.projectId", timeout: "30d",
+          });
+          if (!approval) {
+            await step.run("timed-out", () => markGateTimedOut(projectId, gate, dbStore));
+            return { gate, outcome: "timeout" };
+          }
+          const accepted = await step.run(`record-approval${suffix}`, async () => {
+            if (!await acceptVideoApproval(projectId, approval.data.renderId, approval.data.requestId)) return false;
+            await logEvent(projectId, "render.approved", { by: "user", renderId: approval.data.renderId }).catch(() => {});
+            return true;
+          });
+          if (accepted) break;
+        }
       } else {
         await step.run("mark-waiting", () => markGateWaiting(projectId, gate, dbStore, runId));
         const approval = await step.waitForEvent("wait-for-approval", {
@@ -112,6 +142,33 @@ function gateFunction(gate: GateName) {
     },
   );
 }
+
+export const onAssetReplace = inngest.createFunction(
+  {
+    id: "asset-replace",
+    name: "Replace reviewed asset",
+    triggers: [events.assetReplace],
+    cancelOn: cancelOnReject,
+    retries: 3,
+    concurrency: [
+      { limit: 1, key: '"video-render"', scope: "env" },
+      { limit: 1, key: '"visual-assets"', scope: "env" },
+    ],
+    onFailure: async ({ event }) => {
+      const input = event.data.event.data;
+      await releaseVideoReview(input.projectId, input.requestId, event.data.error.message);
+    },
+  },
+  async ({ event, step }) => {
+    await step.run("replace-reviewed-asset", async () => {
+      try {
+        await replaceReviewedAsset(event.data);
+      } catch (err) {
+        mapError(err);
+      }
+    });
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Rejection
@@ -174,6 +231,7 @@ const workByName = new Map(WORK_STAGES.map((s) => [s.name, s]));
 export const functions = [
   ...STAGES.map((name) => (isGate(name) ? gateFunction(name) : stageFunction(workByName.get(name)!))),
   onProjectRejected,
+  onAssetReplace,
   onIdeasDiscover,
 ];
 

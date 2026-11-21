@@ -25,13 +25,17 @@
     "@vcp/provider-fake-source": "workspace:*",
     "@vcp/provider-fake-stock": "workspace:*",
     "@vcp/provider-fake-tts": "workspace:*",
+    "@vcp/provider-image-flux": "workspace:*",
+    "@vcp/provider-image-openai": "workspace:*",
     "@vcp/provider-llm-anthropic": "workspace:*",
     "@vcp/provider-llm-openai": "workspace:*",
     "@vcp/provider-publish-youtube": "workspace:*",
     "@vcp/provider-render-remotion": "workspace:*",
     "@vcp/provider-source-manual": "workspace:*",
+    "@vcp/provider-stock-pixabay": "workspace:*",
     "@vcp/provider-tts-elevenlabs": "workspace:*",
-    "zod": "^4.6.7"
+    "zod": "^4.6.7",
+    "@vcp/provider-tts-openai": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

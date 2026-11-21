@@ -1,37 +1,50 @@
 import React from "react";
-import { flushSync } from "react-dom";
 import {
   AbsoluteFill,
   Audio,
+  Freeze,
   Img,
   OffthreadVideo,
   Sequence,
   interpolate,
   useCurrentFrame,
-  useDelayRender,
   useVideoConfig,
+  useDelayRender,
 } from "remotion";
-import { captionChunks, captionFontSize, chunkAt } from "./captions";
+import { captionChunks, captionLines, chunkAt } from "./captions";
 import { CAPTION_FONT, captionFontReady } from "./fonts";
+import { visualTimeline, visualSequences } from "./visual-timeline";
+import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
-import type { FactShortProps, SceneProp, WordProp } from "./props";
+import { CAPTION_LAYOUT, type FactShortProps, type SceneProp, type WordProp } from "./props";
 
 const BG = "#0f172a";
-const ACCENT = "#fbbf24";
 const TEXT = "#f8fafc";
 const FONT = "Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif";
 
 export const FactShort: React.FC<FactShortProps> = (props) => {
   const { fps } = useVideoConfig();
+  const { delayRender, continueRender, cancelRender } = useDelayRender();
+  React.useEffect(() => {
+    const handle = delayRender("Load caption font");
+    let active = true;
+    void captionFontReady.then(() => {
+      if (active) continueRender(handle);
+    }).catch((error) => {
+      if (active) cancelRender(error);
+    });
+    return () => {
+      active = false;
+      continueRender(handle);
+    };
+  }, [delayRender, continueRender, cancelRender]);
   const toFrames = (s: number) => Math.max(0, Math.round(s * fps));
-  const closingStart = Math.max(0, props.durationSec - 2.5);
   const frame = useCurrentFrame();
   const spans = React.useMemo(() => speechSpans(props.words), [props.words]);
+  const timeline = visualTimeline(props.scenes, fps, toFrames(props.durationSec));
 
   return (
     <AbsoluteFill style={{ backgroundColor: BG, fontFamily: FONT, color: TEXT }}>
-      <Backdrop />
-
       {props.musicUrl ? (
         <Audio
           src={props.musicUrl}
@@ -42,48 +55,42 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
       ) : null}
       {props.audioUrl ? <Audio src={props.audioUrl} /> : null}
 
-      {props.scenes.filter((scene) => scene.kind !== "type").map((scene) => (
+      {visualSequences(timeline).map(({ scene, start, end, beatId }) => (
         <Sequence
-          key={scene.beatId}
-          from={toFrames(scene.start)}
-          durationInFrames={Math.max(1, toFrames(scene.end) - toFrames(scene.start))}
-          name={`${scene.beatId}:${scene.kind}`}
+          key={beatId}
+          from={start}
+          durationInFrames={end - start}
+          name={`${beatId}:${scene.kind}`}
         >
           <Scene scene={scene} />
         </Sequence>
       ))}
 
-      <Sequence from={0} durationInFrames={toFrames(2.5)} name="title">
-        <TitleCard title={props.title} />
-      </Sequence>
-
-      <Captions words={props.words} />
-
-      <Sequence from={toFrames(closingStart)} name="closing">
-        <ClosingCard sources={props.sources} synthetic={props.containsSyntheticMedia} />
-      </Sequence>
+      <Captions words={props.words} timeline={timeline} />
     </AbsoluteFill>
   );
 };
 
-// ---------------------------------------------------------------------------
 
 const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+  const { durationInFrames, fps } = useVideoConfig();
   const asset = scene.asset;
 
-  if ((scene.kind === "stock" || scene.kind === "clip") && asset?.kind === "video") {
+  if (asset?.kind === "video") {
+    const lastFrame = asset.durationSec === undefined ? null : Math.max(0, Math.floor(asset.durationSec * fps) - 1);
+    const video = <OffthreadVideo src={asset.url} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
     return (
       <AbsoluteFill>
-        <OffthreadVideo src={asset.url} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        {lastFrame !== null && frame > lastFrame ? <Freeze frame={lastFrame}>{video}</Freeze> : video}
         <Vignette />
         {asset.attribution ? <Attribution text={asset.attribution} /> : null}
       </AbsoluteFill>
     );
   }
 
-  if (scene.kind === "still" && asset?.kind === "image") {
+  // A stock search can resolve to a generated still when it finds no footage.
+  if (asset?.kind === "image") {
     const scale = interpolate(frame, [0, durationInFrames], [1, 1.12], { extrapolateRight: "clamp" });
     return (
       <AbsoluteFill>
@@ -93,18 +100,11 @@ const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
     );
   }
 
-  if (scene.kind === "diagram") {
-    return (
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-        <div style={{ width: 760, height: 760, border: `6px dashed ${ACCENT}`, borderRadius: 32, opacity: 0.6 }} />
-      </AbsoluteFill>
-    );
-  }
-
-  return null;
+  if (scene.diagram) return <ProcessVisual diagram={scene.diagram} />;
+  return <Backdrop />;
 };
 
-/** The gradient runs on composition time and stays visible between scenes. */
+/** Animated editorial texture when the storyboard has no usable media. */
 const Backdrop: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -112,114 +112,53 @@ const Backdrop: React.FC = () => {
   const x = 50 + 18 * Math.sin(t / 7);
   const y = 42 + 12 * Math.cos(t / 9);
   return (
-    <AbsoluteFill
-      style={{
-        background: `radial-gradient(circle at ${x}% ${y}%, #1e3a5f 0%, ${BG} 62%)`,
-      }}
-    />
-  );
-};
-
-const TitleCard: React.FC<{ title: string }> = ({ title }) => {
-  const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
-  const opacity = interpolate(frame, [0, 10, durationInFrames - 12, durationInFrames], [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  return (
-    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 220, opacity }}>
-      <div
-        style={{
-          background: ACCENT,
-          color: BG,
-          padding: "20px 40px",
-          borderRadius: 20,
-          fontSize: 56,
-          fontWeight: 900,
-          maxWidth: 900,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </div>
+    <AbsoluteFill style={{ background: `radial-gradient(circle at ${x}% ${y}%, #275769 0%, ${BG} 72%)` }}>
+      <AbsoluteFill style={{
+        backgroundImage: "radial-gradient(#b5dbe870 2px, transparent 2px)",
+        backgroundSize: "38px 38px",
+        backgroundPosition: `${(frame * 0.7) % 38}px ${(frame * 0.4) % 38}px`,
+      }} />
+      {[0, 1, 2].map((index) => (
+        <div key={index} style={{
+          position: "absolute", width: 570 + index * 112, height: 570 + index * 112,
+          border: `3px solid ${index === 1 ? "#fbbf2455" : "#9bdbff66"}`, borderRadius: "48%",
+          left: 70 + index * 84, top: 425 + index * 60,
+          transform: `rotate(${index * 34 + frame / 16}deg) scaleX(1.2)`,
+        }} />
+      ))}
     </AbsoluteFill>
   );
 };
 
-/**
- * Big centred captions, one word at a time as it is said: white Impact with a
- * black outline. No highlight, no motion; each word replaces the last.
- */
-const Captions: React.FC<{ words: WordProp[] }> = ({ words }) => {
+const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visualTimeline> }> = ({ words, timeline }) => {
   const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const { fps, width, height } = useVideoConfig();
+  const time = frame / fps;
   const chunks = React.useMemo(() => captionChunks(words), [words]);
-  const maxSize = 170;
-  const [fontSize, setFontSize] = React.useState(maxSize);
-  const { delayRender, continueRender, cancelRender } = useDelayRender();
-
-  React.useEffect(() => {
-    const handle = delayRender("Measure caption line widths");
-    let active = true;
-    void captionFontReady.then(() => {
-      if (!active) return;
-      const canvas = document.createElement("canvas").getContext("2d");
-      if (!canvas) throw new Error("Could not measure caption widths");
-      canvas.font = `${maxSize}px ${CAPTION_FONT}`;
-      // Leave room for glyph overhang and the black outline.
-      const fittedSize = captionFontSize(chunks, width - 184, maxSize, (text) => {
-        const metrics = canvas.measureText(text);
-        return Math.max(metrics.width, metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight);
-      });
-      flushSync(() => setFontSize(fittedSize));
-      continueRender(handle);
-    }).catch((error) => {
-      if (active) cancelRender(error);
-    });
-    return () => {
-      active = false;
-      continueRender(handle);
-    };
-  }, [chunks, width, delayRender, continueRender, cancelRender]);
-  const chunk = chunkAt(chunks, frame / fps);
+  const chunk = chunkAt(chunks, time);
   if (!chunk) return null;
+  const interval = timeline.find(({ start, end }) => frame >= start && frame < end);
+  const position = interval?.captionPosition ?? "bottom";
+  const lines = captionLines(chunk.words);
+  const top = height * (position.startsWith("top") ? CAPTION_LAYOUT.top : CAPTION_LAYOUT.bottom);
   return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", padding: "0 80px" }}>
-      <div
-        style={{
-          fontFamily: CAPTION_FONT,
-          fontSize,
-          lineHeight: 1.1,
-          color: "#ffffff",
-          textAlign: "center",
-          whiteSpace: "nowrap",
-          WebkitTextStroke: `${Math.round(fontSize * 0.11)}px #000000`,
-          paintOrder: "stroke fill",
-          textShadow: "0 8px 24px rgba(0,0,0,0.55)",
-        }}
-      >
-        {chunk.text}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-const ClosingCard: React.FC<{ sources: string[]; synthetic: boolean }> = ({ sources, synthetic }) => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 12], [0, 1], { extrapolateRight: "clamp" });
-  return (
-    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", backgroundColor: BG, opacity, padding: 96 }}>
-      <div style={{ fontSize: 44, fontWeight: 800, marginBottom: 32, color: ACCENT }}>Sources</div>
-      {sources.slice(0, 4).map((s) => (
-        <div key={s} style={{ fontSize: 30, opacity: 0.85, marginBottom: 12, wordBreak: "break-all", textAlign: "center" }}>
-          {s.replace(/^https?:\/\//, "")}
+    <div style={{
+      position: "absolute", top, left: width / 12, right: width / 12,
+      transform: "translateY(-50%)", display: "flex", flexDirection: "column",
+      alignItems: "center", gap: 12, color: "#f8fafc",
+      fontFamily: CAPTION_FONT, fontWeight: 700, fontSize: CAPTION_LAYOUT.fontSize, lineHeight: 1.38,
+      textAlign: "center",
+    }}>
+      {lines.map((line, index) => (
+        <div key={index} style={{
+          maxWidth: "100%", boxSizing: "border-box", overflowWrap: "anywhere",
+          padding: "6px 22px", borderRadius: 18, background: "rgba(5, 13, 25, 0.78)",
+          textShadow: "0 2px 5px rgba(0,0,0,0.25)",
+        }}>
+          {line.map((word) => word.text).join(" ")}
         </div>
       ))}
-      {synthetic ? (
-        <div style={{ marginTop: 48, fontSize: 28, opacity: 0.7 }}>Contains AI-generated imagery</div>
-      ) : null}
-    </AbsoluteFill>
+    </div>
   );
 };
 
@@ -231,6 +170,6 @@ const Vignette: React.FC = () => (
 
 const Attribution: React.FC<{ text: string }> = ({ text }) => (
   <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "flex-start", padding: 40 }}>
-    <div style={{ fontSize: 22, opacity: 0.6 }}>{text}</div>
+    <div style={{ fontSize: 25, backgroundColor: "#081827b0", borderRadius: 12, padding: "7px 12px" }}>{text}</div>
   </AbsoluteFill>
 );

@@ -44,7 +44,7 @@ export interface StagePatch {
   finishedAt?: Date | null;
   attempt?: number;
   error?: string | null;
-  artifactId?: string;
+  artifactId?: string | null;
   runId?: string;
 }
 

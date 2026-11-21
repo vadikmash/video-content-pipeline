@@ -78,6 +78,11 @@ export function isFakeProvider(ctx: StageCtx, port: PortName): boolean {
   return ctx.registry.manifests().some((m) => m.id === id && m.fake === true);
 }
 
+export function canUseVisualProvider(ctx: StageCtx, port: "StockSearch" | "ImageGen"): boolean {
+  return !isFakeProvider(ctx, port) || ctx.project.dryRun ||
+    (isFakeProvider(ctx, "TextModel") && isFakeProvider(ctx, "Publisher"));
+}
+
 export function providerIdsFor(config: PipelineConfig, ports: readonly PortName[]): string[] {
   return ports.map((p) => config.ports[p]?.providerId ?? "unbound");
 }

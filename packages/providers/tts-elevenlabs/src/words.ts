@@ -8,7 +8,7 @@ export interface TimedText {
 
 export interface WordMatch {
   words: Word[];
-  /** Share of tokens whose timing came from the provider; the rest were interpolated. */
+  /** Share of spoken tokens whose timing came from the provider; the rest were interpolated. */
   matchedRatio: number;
 }
 
@@ -81,7 +81,7 @@ export function matchCharacters(
 
   const matched = timed.filter(Boolean).length;
   const streamEnd = ends[ends.length - 1] ?? 0;
-  return { words: monotonic(fillGaps(tokens, timed, streamEnd)), matchedRatio: matched / tokens.length };
+  return { words: monotonic(fillGaps(tokens, timed, streamEnd)), matchedRatio: matched / (tokens.filter((token) => fold(token).length > 0).length || 1) };
 }
 
 /** Back-compat wrapper: words only. */
@@ -96,6 +96,10 @@ export function wordsFromCharacters(text: string, characters: string[], starts: 
  * separators, so pieces like "It" + "'s" still match "It's".
  */
 export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
+  return matchAlignedWords(text, timed).words;
+}
+
+export function matchAlignedWords(text: string, timed: TimedText[]): WordMatch {
   const characters: string[] = [];
   const starts: number[] = [];
   const ends: number[] = [];
@@ -111,7 +115,7 @@ export function wordsFromAlignment(text: string, timed: TimedText[]): Word[] {
       ends.push(w.start + (span * (k + 1)) / chars.length);
     });
   }
-  return matchCharacters(text, characters, starts, ends, wordStarts).words;
+  return matchCharacters(text, characters, starts, ends, wordStarts);
 }
 
 /** Spread each run of unmatched tokens evenly between the matched words around it. */

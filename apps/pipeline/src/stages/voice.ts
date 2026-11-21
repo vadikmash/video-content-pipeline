@@ -1,5 +1,6 @@
 import { newId, nowIso, scriptText, type Narration } from "@vcp/core";
 import { limits } from "@vcp/limits";
+import { masterNarration, NARRATION_MASTER_VERSION } from "../audio/mastering";
 import { DEFAULT_TIGHTEN, tightenPauses } from "../audio/pauses";
 import { StageError, defineStage, isFakeProvider, voiceOptions } from "./context";
 
@@ -10,7 +11,7 @@ export const voice = defineStage({
   async input(ctx) {
     const script = await ctx.store.latestScript(ctx.project.id);
     if (!script) throw new StageError("voice: no script for project", false);
-    return { scriptId: script.id, text: scriptText(script), voice: voiceOptions(ctx.config) };
+    return { scriptId: script.id, text: scriptText(script), voice: voiceOptions(ctx.config), masteringVersion: NARRATION_MASTER_VERSION };
   },
   async run(ctx, input) {
     const { ports, store, project } = ctx;
@@ -51,6 +52,19 @@ export const voice = defineStage({
       }
     }
 
+    let masteringError: string | undefined;
+    if (!isFakeProvider(ctx, "Speech") && input.voice.options.mastering !== false) {
+      try {
+        const mastered = await masterNarration(audio);
+        audio = mastered.audio;
+        contentType = mastered.contentType;
+      } catch (err) {
+        masteringError = (err instanceof Error ? err.message : String(err)).slice(0, 300);
+        console.warn(`voice: mastering skipped (${masteringError})`);
+        await store.logEvent(project.id, "voice.mastering.failed", { error: masteringError })
+          .catch((error: unknown) => console.warn("voice: could not log mastering failure", error));
+      }
+    }
     const id = newId();
     const ext = EXT[contentType] ?? "bin";
     const audioBlob = await ports.BlobStore.put(`projects/${project.id}/narration/${id}.${ext}`, audio, contentType);
@@ -77,6 +91,8 @@ export const voice = defineStage({
         aligner: alignerProvider ?? "from-speech",
         pausesShortened: tightened.pauses,
         pauseSecRemoved: tightened.removedSec,
+        masteringVersion: input.masteringVersion,
+        ...(masteringError ? { masteringError } : {}),
         ...(tightened.error ? { pauseTighteningError: tightened.error } : {}),
       },
     };

@@ -23,13 +23,33 @@ async function main() {
     console.log("ANTHROPIC_API_KEY is set. Set LLM_PROVIDER=anthropic to bind llm-anthropic. TextModel unchanged.");
   }
 
-  if (process.env.ELEVENLABS_API_KEY) {
+  if (process.env.TTS_PROVIDER === "openai" || (!process.env.ELEVENLABS_API_KEY && process.env.OPENAI_API_KEY)) {
+    if (process.env.OPENAI_API_KEY) {
+      await setPortBinding("Speech", "tts-openai", { voiceId: process.env.OPENAI_TTS_VOICE || "marin", speed: 1.03 });
+      await setPortBinding("Aligner", "align-openai");
+      bound.push("Speech -> tts-openai", "Aligner -> align-openai");
+    } else {
+      console.log("TTS_PROVIDER=openai but OPENAI_API_KEY is unset; narration bindings unchanged");
+    }
+  } else if (process.env.ELEVENLABS_API_KEY) {
     const voiceId = process.env.ELEVENLABS_VOICE_ID;
-    const options = voiceId ? { voiceId } : {};
+    const options = {
+      ...(voiceId ? { voiceId } : {}),
+      ...(process.env.ELEVENLABS_MODEL === "eleven_v3" ? { voiceSettings: { stability: 0.5 } } : {}),
+    };
     await setPortBinding("Speech", "tts-elevenlabs", options);
     await setPortBinding("Aligner", "align-elevenlabs");
     bound.push(`Speech -> tts-elevenlabs${voiceId ? "" : " (set ELEVENLABS_VOICE_ID)"}`);
     bound.push("Aligner -> align-elevenlabs");
+  }
+
+  if (process.env.PIXABAY_KEY) {
+    await setPortBinding("StockSearch", "stock-pixabay");
+    bound.push("StockSearch -> stock-pixabay");
+  }
+  if (process.env.OPENAI_API_KEY) {
+    await setPortBinding("ImageGen", "image-openai");
+    bound.push("ImageGen -> image-openai");
   }
 
   const youtube = ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"] as const;

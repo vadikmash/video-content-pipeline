@@ -48,6 +48,8 @@ export interface ImageGenOpts {
   width?: number;
   height?: number;
   style?: string;
+  /** Identifies one generation across retries of the same scene. */
+  requestId?: string;
 }
 
 export interface ClipGenOpts {

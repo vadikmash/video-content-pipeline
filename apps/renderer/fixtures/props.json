@@ -17,7 +17,5 @@
     { "beatId": "beat-1", "start": 0, "end": 2.8, "text": "In 1932 the Australian army fought emus.", "kind": "type" },
     { "beatId": "beat-2", "start": 2.8, "end": 5.5, "text": "The emus won.", "kind": "type" },
     { "beatId": "beat-3", "start": 5.5, "end": 8, "text": "Sources in the description.", "kind": "type" }
-  ],
-  "sources": ["https://en.wikipedia.org/wiki/Great_Emu_War"],
-  "containsSyntheticMedia": false
+  ]
 }

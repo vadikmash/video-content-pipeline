@@ -8,6 +8,7 @@ import { renderMedia, renderStill, selectComposition } from "@remotion/renderer"
 import {
   defineManifest,
   newId,
+  ProcessDiagram,
   nowIso,
   type BlobRef,
   type BlobStore,
@@ -17,6 +18,7 @@ import {
   type Renderer,
 } from "@vcp/core";
 import { FPS, HEIGHT, TEMPLATE_ID, TEMPLATE_VERSION, WIDTH, type FactShortProps } from "@vcp/renderer/props";
+import { captionPositionFor, type CaptionPosition } from "./caption-placement";
 import { startStaticServer } from "./static-server";
 
 export const manifest = defineManifest({
@@ -90,31 +92,48 @@ export async function toFactShortProps(
   urlFor: (ref: BlobRef) => Promise<string>,
   musicUrl?: string,
 ): Promise<FactShortProps> {
+  const placements = new Map<string, Promise<CaptionPosition>>();
   const scenes = await Promise.all(
     input.storyboard.scenes.map(async (scene) => {
       const asset = scene.assetId ? input.bundle[scene.assetId] : undefined;
+      const diagram = scene.visual.kind === "diagram" ? ProcessDiagram.safeParse(scene.visual.spec) : undefined;
+      const assetUrl = asset ? await urlFor(asset.blob) : undefined;
+      // Preserve the vertical preference of storyboards saved with corner placements.
+      let captionPosition: CaptionPosition | undefined = scene.captionPosition
+        ? (scene.captionPosition.startsWith("top") ? "top" : "bottom")
+        : undefined;
+      if (!captionPosition && asset && assetUrl && (asset.kind === "image" || asset.kind === "video")) {
+        const placementKey = `${asset.id}:${scene.end - scene.start}`;
+        let placement = placements.get(placementKey);
+        if (!placement) {
+          placement = captionPositionFor(assetUrl, asset.kind,
+            Math.min(asset.durationSec ?? scene.end - scene.start, scene.end - scene.start));
+          placements.set(placementKey, placement);
+        }
+        captionPosition = await placement;
+      }
       return {
+        captionPosition: captionPosition ?? "bottom",
         beatId: scene.beatId,
         start: scene.start,
         end: scene.end,
         text: input.beats[scene.beatId] ?? "",
         kind: scene.visual.kind,
+        diagram: diagram?.success ? diagram.data : undefined,
         asset: asset
-          ? { kind: asset.kind, url: await urlFor(asset.blob), attribution: asset.attribution.text || undefined }
+          ? { kind: asset.kind, url: assetUrl!, attribution: asset.attribution.text || undefined, durationSec: asset.durationSec }
           : undefined,
       };
     }),
   );
-  const sources = [...new Set(Object.values(input.bundle).map((a) => a.attribution.url).filter(Boolean))];
+  // Leave a short hold for the audio tail beyond the last timed word.
   const lastEnd = Math.max(input.narration.durationSec, ...scenes.map((s) => s.end));
   return {
     title: input.title,
-    durationSec: Math.max(1, Math.ceil((lastEnd + 2.5) * 10) / 10),
+    durationSec: Math.max(1, Math.ceil((lastEnd + 0.25) * 10) / 10),
     audioUrl: await urlFor(input.narration.audioBlob),
     words: input.narration.words,
     scenes,
-    sources: input.sources ?? sources,
-    containsSyntheticMedia: input.storyboard.containsSyntheticMedia,
     musicUrl,
   };
 }

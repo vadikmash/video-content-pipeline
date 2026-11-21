@@ -1,9 +1,3 @@
-/**
- * Big centred captions: one word at a time, as it is said. A word spoken too
- * quickly to register on its own rides along with the next one.
- * Pure so it can be unit-tested.
- */
-
 export interface CaptionWord {
   text: string;
   start: number;
@@ -13,86 +7,73 @@ export interface CaptionWord {
 export interface CaptionChunk {
   words: CaptionWord[];
   text: string;
-  /** Seconds the chunk appears (its first word starts). */
   start: number;
-  /** Seconds it disappears: when the next chunk appears, or shortly after its last word. */
   end: number;
 }
 
 export interface ChunkOptions {
-  /** Maximum character count when combining multiple spoken words. */
   maxChars: number;
-  /** Words this short join the next word. 0 keeps every word on its own, like the reference Shorts. */
-  shortWordChars: number;
-  /** A chunk shown for less than this joins the next one (avoids one-frame flashes). */
-  minSec: number;
-  /** How long the last chunk before a pause stays up after its word ends. */
+  maxWords: number;
+  maxSec: number;
   holdSec: number;
 }
 
-export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 14, shortWordChars: 0, minSec: 0.15, holdSec: 0.3 };
-
+export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 24, maxWords: 3, maxSec: 1.6, holdSec: 0.65 };
 const ENDS_SENTENCE = /[.!?…]["')\]]?$/;
+const ENDS_CLAUSE = /[,;:]["')\]]?$/;
+const STARTS_PHRASE = /^(a|an|the|in|of|to|and|with|for|from|at|by|or|its|that|through|into)$/i;
 
+/** Group complete phrases independently of scene cuts, retaining the original word timings. */
 export function captionChunks(words: readonly CaptionWord[], opts: ChunkOptions = DEFAULT_CHUNK_OPTIONS): CaptionChunk[] {
   const groups: CaptionWord[][] = [];
   let current: CaptionWord[] = [];
-
-  const spoken = words.filter((word) => /[\p{L}\p{N}]/u.test(word.text));
-  spoken.forEach((word, i) => {
+  for (const [index, word] of words.entries()) {
     current.push(word);
-    const next = spoken[i + 1];
-    const text = joinText(current);
-    const canGrow =
-      next !== undefined &&
-      !ENDS_SENTENCE.test(word.text) &&
-      text.length + 1 + displayText(next.text).length <= opts.maxChars &&
-      ((opts.shortWordChars > 0 && bare(word.text).length <= opts.shortWordChars) || next.start - current[0]!.start < opts.minSec);
-    if (!canGrow) {
-      groups.push(current);
-      current = [];
+    const next = words[index + 1];
+    const text = current.map((item) => item.text).join(" ");
+    const phraseEnds = ENDS_SENTENCE.test(word.text) || (current.length >= 3 && ENDS_CLAUSE.test(word.text));
+    const full = current.length >= opts.maxWords ||
+      (next !== undefined && text.length + 1 + next.text.length > opts.maxChars) ||
+      (next !== undefined && next.end - current[0]!.start > opts.maxSec);
+    const pause = next !== undefined && next.start - word.end > opts.holdSec;
+    if (!next || phraseEnds || full || pause) {
+      let split = current.length;
+      if (next && full && !phraseEnds && !pause) {
+        for (let candidate = current.length - 1; candidate >= Math.max(3, current.length - 2); candidate--) {
+          if (STARTS_PHRASE.test(current[candidate]!.text)) split = candidate;
+        }
+      }
+      groups.push(current.slice(0, split));
+      current = current.slice(split);
     }
-  });
-  if (current.length) groups.push(current);
-
-  return groups.map((g, i) => {
-    const start = g[0]!.start;
-    const lastEnd = g[g.length - 1]!.end;
-    const nextStart = groups[i + 1]?.[0]?.start;
-    // Stay up until the next chunk when it follows closely; otherwise linger briefly.
+  }
+  return groups.map((group, index) => {
+    const start = group[0]!.start;
+    const lastEnd = group[group.length - 1]!.end;
+    const nextStart = groups[index + 1]?.[0]?.start;
     const end = nextStart !== undefined && nextStart - lastEnd <= opts.holdSec ? nextStart : lastEnd + opts.holdSec;
-    return { words: g, text: joinText(g), start, end: Math.max(end, start) };
+    return { words: group, text: group.map((word) => word.text).join(" "), start, end: Math.max(start, end) };
   });
 }
 
-export function chunkAt(chunks: readonly CaptionChunk[], t: number): CaptionChunk | undefined {
-  return chunks.find((c) => t >= c.start && t < c.end);
+export function chunkAt(chunks: readonly CaptionChunk[], time: number): CaptionChunk | undefined {
+  return chunks.find((chunk) => time >= chunk.start && time < chunk.end);
 }
 
-/** Scale from the widest caption as measured at maxSize. */
-export function captionFontSize(
-  chunks: readonly CaptionChunk[],
-  width: number,
-  maxSize: number,
-  measureAtMaxSize: (text: string) => number,
-): number {
-  const widest = chunks.reduce((size, chunk) => Math.max(size, measureAtMaxSize(chunk.text)), 1);
-  return Math.max(1, Math.floor(maxSize * Math.min(1, width / widest)));
-}
-
-function joinText(words: readonly CaptionWord[]): string {
-  return words.map((word) => displayText(word.text)).join(" ");
-}
-
-function displayText(text: string): string {
-  // Keep signs, ratios, ranges, and units when they are part of a number.
-  const punctuation = /((?<![\p{L}\p{N}])[-+−](?=\p{Nd})|(?<=\p{Nd})[.,:/⁄\p{Pd}\u066B\u066C](?=\p{Nd})|(?<=\p{Nd})[%٪‰‱])|\p{P}/gu;
-  return text
-    .replace(punctuation, (mark, numeric: string | undefined) => numeric ?? (/\p{Pd}/u.test(mark) ? " " : ""))
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function bare(text: string): string {
-  return text.replace(/[^\p{L}\p{N}]/gu, "");
+/** Balance phrase lines while preserving the original word timings. */
+export function captionLines(words: readonly CaptionWord[], maxChars = 25): CaptionWord[][] {
+  const text = words.map((word) => word.text).join(" ");
+  if (text.length <= maxChars || words.length < 2) return [[...words]];
+  let split = 1;
+  let bestBalance = Infinity;
+  for (let index = 1; index < words.length; index++) {
+    const left = words.slice(0, index).map((word) => word.text).join(" ").length;
+    const right = words.slice(index).map((word) => word.text).join(" ").length;
+    const balance = Math.abs(left - right);
+    if (balance < bestBalance) {
+      bestBalance = balance;
+      split = index;
+    }
+  }
+  return [words.slice(0, split), words.slice(split)];
 }

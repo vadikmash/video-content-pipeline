@@ -9,14 +9,14 @@ export const manifest = defineManifest({
   attributionRequired: false,
   costModel: { unit: "character", approxUsd: 0 },
   description:
-    "ElevenLabs text-to-speech with character timestamps, collapsed to one word per input token. Voice id is Speech options.voiceId, else ELEVENLABS_VOICE_ID. Speech options.speed (0.7-1.2, default 1.1) keeps the voice's other saved settings.",
+    "ElevenLabs text-to-speech with character timestamps, collapsed to one word per input token. Voice id is Speech options.voiceId, else ELEVENLABS_VOICE_ID. Speech options.speed (0.7-1.2, default 1.1) keeps the voice's other saved settings. Eleven v3 uses its natural pace. Supply options.voiceSettings to control delivery explicitly without reading saved settings.",
 });
 
 const DEFAULT_MODEL = "eleven_multilingual_v2";
 /** Slightly faster than the voice's natural pace; ElevenLabs accepts 0.7-1.2. */
 export const DEFAULT_SPEED = 1.1;
 
-export { matchCharacters, wordsFromAlignment, wordsFromCharacters } from "./words";
+export { matchCharacters, matchAlignedWords, wordsFromAlignment, wordsFromCharacters } from "./words";
 
 export interface Alignment {
   characters?: string[];
@@ -28,9 +28,15 @@ export function create(ctx: ProviderContext): Speech {
   const apiKey = ctx.env.ELEVENLABS_API_KEY;
   const modelId = stringOpt(ctx.options.modelId) ?? ctx.env.ELEVENLABS_MODEL ?? DEFAULT_MODEL;
   const speed = clampSpeed(numberOpt(ctx.options.speed) ?? DEFAULT_SPEED);
+  const supplied = ctx.options.voiceSettings;
+  if (supplied !== undefined && (typeof supplied !== "object" || supplied === null || Array.isArray(supplied))) {
+    throw new ProviderError("tts-elevenlabs: voiceSettings must be an object", undefined, false);
+  }
+  const explicitSettings = supplied as Record<string, unknown> | undefined;
   // voice_settings replaces the voice's saved settings wholesale, so fetch them once and override speed only.
   const savedSettings = new Map<string, Promise<Record<string, unknown>>>();
   const settingsFor = (voiceId: string) => {
+    if (explicitSettings) return Promise.resolve(explicitSettings);
     if (!savedSettings.has(voiceId)) savedSettings.set(voiceId, fetchVoiceSettings(apiKey!, voiceId));
     return savedSettings.get(voiceId)!;
   };
@@ -44,7 +50,7 @@ export function create(ctx: ProviderContext): Speech {
       const res = await fetch(url, {
         method: "POST",
         headers: { "xi-api-key": apiKey, "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ text, model_id: modelId, voice_settings: { ...(await settingsFor(voiceId)), speed } }),
+        body: JSON.stringify({ text, model_id: modelId, voice_settings: { ...(await settingsFor(voiceId)), ...(modelId === "eleven_v3" ? {} : { speed }) } }),
       });
       const body = (await res.json().catch(() => ({}))) as {
         detail?: { message?: string } | string;

@@ -74,7 +74,7 @@ export const STAGE_PORTS: Record<StageName, readonly PortName[]> = {
   write: ["TextModel"],
   "approve-script": [],
   voice: ["Speech", "Aligner"],
-  storyboard: [],
+  storyboard: ["TextModel"],
   assets: ["StockSearch", "ImageGen", "ClipGen"],
   render: ["Renderer"],
   "approve-video": [],

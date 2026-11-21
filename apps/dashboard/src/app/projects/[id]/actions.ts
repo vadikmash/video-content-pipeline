@@ -3,13 +3,17 @@
 import { Script, isStageName, newId, retryTrigger, scriptText } from "@vcp/core";
 import {
   getProject,
+  getRender,
   getStage,
+  getStoryboard,
   insertScript,
   latestRender,
   latestScript,
   latestUpload,
   logEvent,
   nextScriptVersion,
+  releaseVideoReview,
+  reserveVideoReview,
   updateProject,
   upsertStage,
 } from "@vcp/db";
@@ -71,11 +75,38 @@ export async function approveScript(projectId: string): Promise<void> {
   revalidatePath(`/projects/${projectId}`);
 }
 
-export async function approveVideo(projectId: string): Promise<void> {
-  await requireProject(projectId);
-  const render = await latestRender(projectId);
-  if (!render) throw new Error("no render to approve");
-  await sendEvent("render.approved", { projectId, renderId: render.id });
+export async function approveVideo(projectId: string, renderId: string): Promise<void> {
+  const requestId = newId();
+  if (!await reserveVideoReview(projectId, renderId, requestId)) return;
+  try {
+    await sendEvent("render.approved", { projectId, renderId, requestId }, { id: requestId });
+  } catch (err) {
+    await releaseVideoReview(projectId, requestId, "Could not queue approval. Try again.");
+    throw err;
+  }
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function replaceAsset(projectId: string, renderId: string, beatId: string, formData: FormData): Promise<void> {
+  const render = await getRender(renderId);
+  const board = render?.projectId === projectId ? await getStoryboard(render.storyboardId) : undefined;
+  const previous = board?.scenes.find((scene) => scene.beatId === beatId)?.visual;
+  if (previous?.kind !== "stock" && previous?.kind !== "still") throw new Error("Scene is unavailable");
+  const description = String(formData.get("description") ?? "").trim();
+  if (!description || description.length > (previous.kind === "stock" ? 100 : 1000)) {
+    throw new Error("Enter a valid description for the replacement");
+  }
+  const visual = previous.kind === "stock"
+    ? { ...previous, query: description }
+    : { ...previous, prompt: description, style: "flat-illustration" };
+  const requestId = newId();
+  if (!await reserveVideoReview(projectId, renderId, requestId)) return;
+  try {
+    await sendEvent("asset.replace", { projectId, renderId, requestId, beatId, visual }, { id: requestId });
+  } catch (err) {
+    await releaseVideoReview(projectId, requestId, "Could not queue asset replacement. Try again.");
+    throw err;
+  }
   revalidatePath(`/projects/${projectId}`);
 }
 

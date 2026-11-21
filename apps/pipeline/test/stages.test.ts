@@ -38,7 +38,9 @@ describe("pipeline on fakes", () => {
     expect(brief?.sources).toContain("https://www.awm.gov.au/articles/encyclopedia/emu-war");
 
     const board = await store.latestStoryboard(project.id);
-    expect(board?.scenes.every((s) => s.visual.kind === "type" && !s.assetId)).toBe(true);
+    expect(board?.scenes.filter((s) => s.assetId).map((s) => s.visual.kind)).toEqual(["stock", "still"]);
+    expect(board?.scenes[0]?.visual.kind).toBe("type");
+    expect(board?.scenes.at(-1)?.visual.kind).toBe("type");
 
     const upload = await store.latestUpload(project.id);
     expect(upload?.privacy).toBe("public");
@@ -197,3 +199,38 @@ function makeWorldIdea() {
   w.cleanup();
   return w.idea;
 }
+
+it("clears a failed video approval reservation when its gate is retried", async () => {
+  const { failProject, markGateWaiting } = await import("../src/stages/runner");
+  const world = makeWorld();
+  try {
+    await world.store.upsertStage(world.project.id,"approve-video",{status:"running",artifactId:"approval-request"});
+    await failProject(world.project.id,"approve-video","Database retries exhausted",world.store);
+    expect((await world.store.getProject(world.project.id))?.status).toBe("failed");
+    await markGateWaiting(world.project.id,"approve-video",world.store);
+    const gate=await world.store.getStage(world.project.id,"approve-video");
+    expect(gate?.status).toBe("waiting");
+    expect(gate?.artifactId).toBeUndefined();
+    expect((await world.store.getProject(world.project.id))?.currentStage).toBe("approve-video");
+  } finally {
+    world.cleanup();
+  }
+});
+
+it("recovers gate initialization failure and ignores failure notifications from an older gate run", async () => {
+  const { failGateRun, markGateWaiting } = await import("../src/stages/runner");
+  const world=makeWorld();
+  try {
+    await world.store.upsertStage(world.project.id,"render",{status:"done"});
+    await world.store.updateProject(world.project.id,{status:"active",currentStage:"render"});
+    await failGateRun(world.project.id,"approve-video","first-run","Could not load gate mode",world.store);
+    expect(await world.store.getProject(world.project.id)).toMatchObject({status:"failed",currentStage:"approve-video"});
+    await markGateWaiting(world.project.id,"approve-video",world.store,"new-run");
+    await failGateRun(world.project.id,"approve-video","first-run","Late failure",world.store);
+    expect((await world.store.getProject(world.project.id))?.status).toBe("waiting");
+    await failGateRun(world.project.id,"approve-video","new-run","Database failed",world.store);
+    expect((await world.store.getProject(world.project.id))?.status).toBe("failed");
+  } finally {
+    world.cleanup();
+  }
+});

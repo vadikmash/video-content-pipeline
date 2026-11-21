@@ -6,10 +6,11 @@ import { z } from "zod";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.0.1";
+export const TEMPLATE_VERSION = "1.6.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
+export const CAPTION_LAYOUT = { fontSize: 64, top: 0.24, bottom: 0.68 } as const;
 
 export const WordProp = z.object({
   text: z.string(),
@@ -21,6 +22,7 @@ export const SceneAsset = z.object({
   kind: z.enum(["video", "image", "audio"]),
   url: z.string(),
   attribution: z.string().optional(),
+  durationSec: z.number().positive().optional(),
 });
 
 export const SceneProp = z.object({
@@ -29,7 +31,14 @@ export const SceneProp = z.object({
   end: z.number(),
   text: z.string(),
   kind: z.enum(["type", "stock", "still", "clip", "diagram"]),
+  captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
   asset: SceneAsset.optional(),
+  diagram: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("orbital-freefall"), focus: z.enum(["cabin", "gravity", "falling", "orbit"]), language: z.enum(["en", "ru"]).optional() }),
+    z.object({ kind: z.literal("flow"), steps: z.array(z.object({ label: z.string(), detail: z.string() })) }),
+    z.object({ kind: z.literal("lunar-eclipse"), focus: z.enum(["alignment", "refraction", "dispersion", "scattering", "illumination"]), language: z.enum(["en", "ru"]).optional() }),
+    z.object({ kind: z.literal("octopus-circulation"), focus: z.enum(["gills", "body", "cycle"]) }),
+  ]).optional(),
 });
 
 export const FactShortProps = z.object({
@@ -38,9 +47,6 @@ export const FactShortProps = z.object({
   audioUrl: z.string().optional(),
   words: z.array(WordProp),
   scenes: z.array(SceneProp),
-  sources: z.array(z.string()).default([]),
-  /** Shown on the closing card when true. */
-  containsSyntheticMedia: z.boolean().default(false),
   /** Optional music bed, ducked under narration (see music.ts). Omitted when no bed file is configured. */
   musicUrl: z.string().optional(),
 });
@@ -62,6 +68,4 @@ export const defaultProps: FactShortProps = {
     { beatId: "beat-1", start: 0, end: 3, text: "This is a placeholder render.", kind: "type" },
     { beatId: "beat-2", start: 3, end: 6, text: "Second beat, still a placeholder.", kind: "type" },
   ],
-  sources: ["https://example.org/source"],
-  containsSyntheticMedia: false,
 };

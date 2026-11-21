@@ -12,6 +12,7 @@ export interface StoryboardRow {
   assetStatus?: "ready" | "missing" | "failed";
   assetName?: string;
   attribution?: ReactNode;
+  replacement?: ReactNode;
 }
 
 function Thumb({ src, kind, status, title }: { src?: string; kind: string; status?: StoryboardRow["assetStatus"]; title?: string }) {
@@ -53,6 +54,7 @@ export function StoryboardTable({ rows, className }: { rows: StoryboardRow[]; cl
               <td className="vcp-sb-visual">
                 <Tag>{r.kind}</Tag>
                 <span>{r.visual}</span>
+                {r.replacement}
               </td>
               <td className="vcp-sb-asset">
                 <Thumb src={r.thumb} kind={r.kind} status={r.assetStatus} title={r.assetName} />
