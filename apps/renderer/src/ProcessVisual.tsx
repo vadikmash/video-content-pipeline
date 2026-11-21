@@ -1,5 +1,6 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { LunarEclipse } from "./LunarEclipse";
 import type { SceneProp } from "./props";
 
 type Diagram = NonNullable<SceneProp["diagram"]>;
@@ -12,6 +13,7 @@ const ACTIVE = "#fbbf24";
 export const ProcessVisual: React.FC<{ diagram: Diagram }> = ({ diagram }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
+  if (diagram.kind === "lunar-eclipse") return <LunarEclipse focus={diagram.focus} />;
   if (diagram.kind === "octopus-circulation") {
     return <OctopusCirculation focus={diagram.focus} phase={frame / fps} />;
   }
@@ -20,12 +22,12 @@ export const ProcessVisual: React.FC<{ diagram: Diagram }> = ({ diagram }) => {
   const stepFrames = durationInFrames / steps.length;
   const active = Math.min(steps.length - 1, Math.floor(frame / stepFrames));
   return (
-    <DiagramField>
+    <DiagramField contentHeight={(steps.length - 1) * 200 + 124}>
       {steps.map((step, index) => (
         <React.Fragment key={index}>
           {index > 0 ? <Arrow from={[450, (index - 1) * 200 + 124]} to={[450, index * 200 - 8]}
             color={index <= active ? ACTIVE : "#537086"} phase={frame / fps} lit={index === active} /> : null}
-          <DiagramNode x={450} y={index * 200} width={760} label={step.label} detail={step.detail}
+          <DiagramNode x={450} y={index * 200} width={760} label={step.label}
             color={index === active ? ACTIVE : "#8daac0"} active={index === active} />
         </React.Fragment>
       ))}
@@ -33,7 +35,8 @@ export const ProcessVisual: React.FC<{ diagram: Diagram }> = ({ diagram }) => {
   );
 };
 
-function DiagramField({ children }: React.PropsWithChildren) {
+function DiagramField({ children, contentHeight = 724 }: React.PropsWithChildren<{ contentHeight?: number }>) {
+  const { height } = useVideoConfig();
   return (
     <AbsoluteFill style={{
       background: "radial-gradient(ellipse at 25% 34%, #14505b 0%, #102d3d 46%, #081827 90%)",
@@ -43,13 +46,13 @@ function DiagramField({ children }: React.PropsWithChildren) {
         backgroundSize: "36px 36px",
         opacity: 0.5,
       }} />
-      <div style={{ position: "absolute", top: 370, left: 90, width: 900, height: 820 }}>{children}</div>
+      <div style={{ position: "absolute", top: height * 0.46 - contentHeight / 2, left: 90, width: 900, height: contentHeight }}>{children}</div>
     </AbsoluteFill>
   );
 }
 
-function DiagramNode({ x, y, width, label, detail, color, active }: {
-  x: number; y: number; width: number; label: string; detail?: string; color: string; active: boolean;
+function DiagramNode({ x, y, width, label, color, active }: {
+  x: number; y: number; width: number; label: string; color: string; active: boolean;
 }) {
   return (
     <div style={{
@@ -60,7 +63,6 @@ function DiagramNode({ x, y, width, label, detail, color, active }: {
       boxShadow: active ? `0 0 36px ${color}44` : "none",
     }}>
       <div style={{ color: active ? color : "#e4f2fa", fontSize: 36, fontWeight: 800, lineHeight: 1.06 }}>{label}</div>
-      {detail ? <div style={{ color: "#ddedf6", fontSize: 26, marginTop: 6, lineHeight: 1.08 }}>{detail}</div> : null}
     </div>
   );
 }
@@ -98,9 +100,6 @@ function OctopusCirculation({ focus, phase }: {
   const body = focus !== "gills";
   return (
     <DiagramField>
-      <div style={{ position: "absolute", top: -86, width: "100%", textAlign: "center", fontSize: 36, fontWeight: 800 }}>
-        Octopus blood flow
-      </div>
       <Arrow from={[280, 124]} to={[280, 192]} color={PALE} phase={phase} lit={gills} />
       <Arrow from={[620, 124]} to={[620, 192]} color={PALE} phase={phase} lit={gills} />
       <Arrow from={[280, 324]} to={[408, 392]} color={BLUE} phase={phase} lit={gills} />
@@ -114,11 +113,11 @@ function OctopusCirculation({ focus, phase }: {
       <Arrow from={[842, 62]} to={[768, 62]} color={PALE} phase={phase} lit={body} />
       <DiagramNode x={280} y={0} width={280} label="Gill heart 1" color={PALE} active={gills} />
       <DiagramNode x={620} y={0} width={280} label="Gill heart 2" color={PALE} active={gills} />
-      <DiagramNode x={280} y={200} width={280} label="Gill 1" detail="Adds oxygen" color={BLUE} active={gills} />
-      <DiagramNode x={620} y={200} width={280} label="Gill 2" detail="Adds oxygen" color={BLUE} active={gills} />
-      <DiagramNode x={450} y={400} width={430} label="Third heart" detail="Pumps blood to the body" color={BLUE} active={body} />
-      <DiagramNode x={450} y={600} width={430} label="Body and arms" detail="Use oxygen" color={BLUE} active={body} />
-      <div style={{ position: "absolute", top: 762, width: "100%", display: "flex", justifyContent: "center", gap: 36, fontSize: 25 }}>
+      <DiagramNode x={280} y={200} width={280} label="Gill 1" color={BLUE} active={gills} />
+      <DiagramNode x={620} y={200} width={280} label="Gill 2" color={BLUE} active={gills} />
+      <DiagramNode x={450} y={400} width={430} label="Third heart" color={BLUE} active={body} />
+      <DiagramNode x={450} y={600} width={430} label="Body and arms" color={BLUE} active={body} />
+      <div style={{ position: "absolute", top: -60, width: "100%", display: "flex", justifyContent: "center", gap: 36, fontSize: 25 }}>
         <span style={{ color: PALE }}>Lavender · oxygen-poor</span>
         <span style={{ color: BLUE }}>Blue · oxygen-rich</span>
       </div>

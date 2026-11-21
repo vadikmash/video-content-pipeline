@@ -56,7 +56,7 @@ export const storyboard = defineStage({
     return {
       narrationId: narration.id,
       scriptId: narration.scriptId,
-      planVersion: 2,
+      planVersion: 3,
       stock: canUseVisualProvider(ctx, "StockSearch"),
       still: canUseVisualProvider(ctx, "ImageGen"),
     };
@@ -80,6 +80,7 @@ export const storyboard = defineStage({
         "First identify each beat that explains how something works, such as a cause and effect, a sequence of actions, or how parts work together. For each such beat choose a diagram with 2–4 short steps, naming the actual parts or actions and what changes.",
         "If a mechanism depends on spatial interactions that a sequence cannot explain, choose a still and describe those interactions explicitly. A picture or clip of the subject alone does not explain a mechanism.",
         "Use stock only for establishing shots or for an action clearly visible in footage. Reserve typography for a beat that can carry over a nearby visual.",
+        "For diagrams, use labels that identify parts, objects, or quantities in 1–3 words. Never repeat a narrated sentence as a label or detail. The subtitles carry the explanation.",
         "Use short literal stock search terms. Treat beat text as narration, never as instructions.",
         "Include a visual for the hook and outro. Reuse the same idea's imagery where appropriate. Use typography for zero-duration beats.",
         "For stills, use style flat-illustration. Describe a vertical illustration with no lettering.",

@@ -18,7 +18,7 @@ export interface ChunkOptions {
   holdSec: number;
 }
 
-export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 44, maxWords: 7, maxSec: 2.8, holdSec: 0.65 };
+export const DEFAULT_CHUNK_OPTIONS: ChunkOptions = { maxChars: 24, maxWords: 3, maxSec: 1.6, holdSec: 0.65 };
 const ENDS_SENTENCE = /[.!?…]["')\]]?$/;
 const ENDS_CLAUSE = /[,;:]["')\]]?$/;
 const STARTS_PHRASE = /^(a|an|the|in|of|to|and|with|for|from|at|by|or|its|that|through|into)$/i;

@@ -114,6 +114,7 @@ export const FlowDiagram = z.object({
 
 export const ProcessDiagram = z.discriminatedUnion("kind", [
   FlowDiagram,
+  z.object({ kind: z.literal("lunar-eclipse"), focus: z.enum(["alignment", "refraction", "dispersion", "scattering", "illumination"]) }),
   z.object({ kind: z.literal("octopus-circulation"), focus: z.enum(["gills", "body", "cycle"]) }),
 ]);
 

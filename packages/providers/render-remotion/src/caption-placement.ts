@@ -1,3 +1,4 @@
+import { CAPTION_LAYOUT } from "@vcp/renderer/props";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -13,7 +14,7 @@ export function quietCaptionPosition(frames: readonly Uint8Array[], allowTop = t
   for (const frame of frames) {
     if (frame.length !== WIDTH * HEIGHT) continue;
     for (const position of POSITIONS) {
-      const center = Math.round(HEIGHT * (position.startsWith("top") ? 0.27 : 0.76));
+      const center = Math.round(HEIGHT * (position.startsWith("top") ? CAPTION_LAYOUT.top : CAPTION_LAYOUT.bottom));
       let sum = 0;
       let squares = 0;
       let edges = 0;

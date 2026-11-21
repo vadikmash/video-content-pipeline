@@ -16,7 +16,7 @@ import { CAPTION_FONT, captionFontReady } from "./fonts";
 import { visualTimeline, visualSequences } from "./visual-timeline";
 import { ProcessVisual } from "./ProcessVisual";
 import { musicVolume, speechSpans } from "./music";
-import type { FactShortProps, SceneProp, WordProp } from "./props";
+import { CAPTION_LAYOUT, type FactShortProps, type SceneProp, type WordProp } from "./props";
 
 const BG = "#0f172a";
 const ACCENT = "#fbbf24";
@@ -172,13 +172,13 @@ const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visual
   const interval = timeline.find(({ start, end }) => frame >= start && frame < end);
   const position = frame < Math.round(2.5 * fps) ? "bottom" : interval?.captionPosition ?? "bottom";
   const lines = captionLines(chunk.words);
-  const top = height * (position.startsWith("top") ? 0.27 : 0.76);
+  const top = height * (position.startsWith("top") ? CAPTION_LAYOUT.top : CAPTION_LAYOUT.bottom);
   return (
     <div style={{
       position: "absolute", top, left: width / 12, right: width / 12,
       transform: "translateY(-50%)", display: "flex", flexDirection: "column",
       alignItems: "center", gap: 12, color: "#f8fafc",
-      fontFamily: CAPTION_FONT, fontWeight: 700, fontSize: 64, lineHeight: 1.38,
+      fontFamily: CAPTION_FONT, fontWeight: 700, fontSize: CAPTION_LAYOUT.fontSize, lineHeight: 1.38,
       textAlign: "center",
     }}>
       {lines.map((line, index) => (

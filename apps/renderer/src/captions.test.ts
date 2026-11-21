@@ -6,11 +6,11 @@ function speak(sentence: string, start = 0, per = 0.3): CaptionWord[] {
 }
 
 describe("phrase captions", () => {
-  it("keeps a complete short sentence visible while its individual words are spoken", () => {
+  it("limits each caption to three words and keeps its text stable during playback", () => {
     const words = speak("Earth blocks direct sunlight.");
     const chunks = captionChunks(words);
-    expect(chunks.map((chunk) => chunk.text)).toEqual(["Earth blocks direct sunlight."]);
-    expect(chunkAt(chunks, 0.1)).toBe(chunkAt(chunks, 1.0));
+    expect(chunks.map((chunk) => chunk.text)).toEqual(["Earth blocks direct", "sunlight."]);
+    expect(chunkAt(chunks, 0.1)).toBe(chunkAt(chunks, 0.6));
   });
 
   it("retains every word and its timing when a long sentence spans multiple phrases", () => {
@@ -18,8 +18,8 @@ describe("phrase captions", () => {
     const chunks = captionChunks(words);
     expect(chunks.flatMap((chunk) => chunk.words)).toEqual(words);
     for (const chunk of chunks) {
-      expect(chunk.words.length).toBeLessThanOrEqual(7);
-      expect(chunk.text.length).toBeLessThanOrEqual(44);
+      expect(chunk.words.length).toBeLessThanOrEqual(3);
+      expect(chunk.text.length).toBeLessThanOrEqual(24);
     }
     for (let i = 1; i < chunks.length; i++) expect(chunks[i - 1]!.end).toBe(chunks[i]!.start);
   });
@@ -27,8 +27,8 @@ describe("phrase captions", () => {
   it("preserves sentence boundaries and briefly holds captions across a pause", () => {
     const words = [...speak("The Moon glows red."), ...speak("Here is why.", 2)];
     const chunks = captionChunks(words);
-    expect(chunks.map((chunk) => chunk.text)).toEqual(["The Moon glows red.", "Here is why."]);
-    expect(chunkAt(chunks, 1.5)?.text).toBe("The Moon glows red.");
+    expect(chunks.map((chunk) => chunk.text)).toEqual(["The Moon glows", "red.", "Here is why."]);
+    expect(chunkAt(chunks, 1.5)?.text).toBe("red.");
     expect(chunkAt(chunks, 1.9)).toBeUndefined();
     expect(chunkAt(chunks, 2.1)?.text).toBe("Here is why.");
   });

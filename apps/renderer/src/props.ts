@@ -6,10 +6,11 @@ import { z } from "zod";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.3.2";
+export const TEMPLATE_VERSION = "1.4.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
+export const CAPTION_LAYOUT = { fontSize: 64, top: 0.24, bottom: 0.68 } as const;
 
 export const WordProp = z.object({
   text: z.string(),
@@ -34,6 +35,7 @@ export const SceneProp = z.object({
   asset: SceneAsset.optional(),
   diagram: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("flow"), steps: z.array(z.object({ label: z.string(), detail: z.string() })) }),
+    z.object({ kind: z.literal("lunar-eclipse"), focus: z.enum(["alignment", "refraction", "dispersion", "scattering", "illumination"]) }),
     z.object({ kind: z.literal("octopus-circulation"), focus: z.enum(["gills", "body", "cycle"]) }),
   ]).optional(),
 });
