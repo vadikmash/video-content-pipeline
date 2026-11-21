@@ -187,7 +187,7 @@ Pages:
 
 ## 7. Renderer
 
-One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60 s. Props are the storyboard plus asset URLs. Scenes are React components keyed by `VisualIntent.kind`: typography, Ken Burns on a still, cropped stock with a slow push, diagram scenes drawn in SVG, word-timed captions, music ducked under narration, closing source card. Rendering runs locally first (`npx remotion render`), then in a container worker with Chromium and FFmpeg, then Remotion Lambda only if a single worker falls behind. Remotion is free for an individual, including automation; check the licence if a team forms.
+One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60 s. Props are the storyboard plus asset URLs. Scenes are React components keyed by `VisualIntent.kind`: typography, Ken Burns on a still, cropped stock with a slow push, diagram scenes drawn in SVG, short phrase captions, optional music ducked under narration, and source credits in the publish description. Rendering runs locally first (`npx remotion render`), then in a container worker with Chromium and FFmpeg, then Remotion Lambda only if a single worker falls behind. Remotion is free for an individual, including automation; check the licence if a team forms.
 
 ## 8. Data and infrastructure
 
@@ -206,7 +206,6 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 
 - M0, week 1. Monorepo, core schemas and ports, DB, fakes for every port, Inngest locally, dashboard with Ideas inbox and manual add. A selected idea runs end to end on fakes and produces a placeholder MP4. Nothing paid is called.
 - M1, weeks 2–3. Real script with claims (one LLM provider), ElevenLabs voice and alignment, Remotion template v1 (typography, captions, music, source card), local render, YouTube upload as private, publish from the dashboard. First real video. Do five of these by hand-picking ideas before adding research.
-- Template follow-up after the M1 test videos. Try a short title-only beat with a subtle sound cue before narration starts. Keep the intro brief and shift narration, scene timing, and captions together. Review the first two seconds on a phone with sound on and muted.
 - M2, week 4. Pixabay stock, GPT Image stills, storyboard planner, review page with asset replacement, quota ledger and circuit breakers live.
 - M3, week 5. Discovery sources: Wikimedia, YouTube most-popular, Reddit (after app registration). Scoring and dedupe.
 - M4, week 6. Deploy. Scheduling via `publishAt`. Pull YouTube Analytics per video back into the ideas table so scoring can learn from what worked.
@@ -230,3 +229,7 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 
 - Black Forest Labs. Verify authentication and the existing FLUX adapter against the live API before making it a supported provider.
 - fal. Add a FLUX adapter using `FAL_KEY` and verify generation, retries, and quota handling.
+
+- Preview creation. Add thumbnail/cover creation and quick low-resolution video previews before full renders.
+- 3D animations. Add reusable 3D scenes for explanations that need depth, perspective, or spatial interaction.
+- Background music (next stage). Add track selection/upload, audition previews, loudness matching, and license/credit metadata. Looping, fades, and speech ducking already work with an optional bed.mp3; no soundtrack has been supplied for the test videos.

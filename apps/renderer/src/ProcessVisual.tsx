@@ -22,12 +22,12 @@ export const ProcessVisual: React.FC<{ diagram: Diagram }> = ({ diagram }) => {
   const stepFrames = durationInFrames / steps.length;
   const active = Math.min(steps.length - 1, Math.floor(frame / stepFrames));
   return (
-    <DiagramField contentHeight={(steps.length - 1) * 200 + 124}>
+    <DiagramField width={1080} contentHeight={(steps.length - 1) * 200 + 124}>
       {steps.map((step, index) => (
         <React.Fragment key={index}>
-          {index > 0 ? <Arrow from={[450, (index - 1) * 200 + 124]} to={[450, index * 200 - 8]}
+          {index > 0 ? <Arrow from={[540, (index - 1) * 200 + 124]} to={[540, index * 200 - 8]}
             color={index <= active ? ACTIVE : "#537086"} phase={frame / fps} lit={index === active} /> : null}
-          <DiagramNode x={450} y={index * 200} width={760} label={step.label}
+          <DiagramNode x={540} y={index * 200} width={1040} label={step.label}
             color={index === active ? ACTIVE : "#8daac0"} active={index === active} />
         </React.Fragment>
       ))}
@@ -35,7 +35,7 @@ export const ProcessVisual: React.FC<{ diagram: Diagram }> = ({ diagram }) => {
   );
 };
 
-function DiagramField({ children, contentHeight = 724 }: React.PropsWithChildren<{ contentHeight?: number }>) {
+function DiagramField({ children, contentHeight = 724, width = 900 }: React.PropsWithChildren<{ contentHeight?: number; width?: number }>) {
   const { height } = useVideoConfig();
   return (
     <AbsoluteFill style={{
@@ -46,7 +46,7 @@ function DiagramField({ children, contentHeight = 724 }: React.PropsWithChildren
         backgroundSize: "36px 36px",
         opacity: 0.5,
       }} />
-      <div style={{ position: "absolute", top: height * 0.46 - contentHeight / 2, left: 90, width: 900, height: contentHeight }}>{children}</div>
+      <div style={{ position: "absolute", top: height * 0.46 - contentHeight / 2, left: `calc(50% - ${width / 2}px)`, width, height: contentHeight }}>{children}</div>
     </AbsoluteFill>
   );
 }

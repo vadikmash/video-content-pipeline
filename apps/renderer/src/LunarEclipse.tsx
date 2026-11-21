@@ -54,12 +54,12 @@ export function LunarEclipse({ focus }: { focus: Focus }) {
           <circle key={index} cx={(index * 173 + 49) % 1080} cy={(index * 307 + 31) % 1920}
             r={1 + index % 3 * 0.4} fill="#d5e8ff" opacity={0.1 + index % 5 * 0.06} />
         ))}
-        <g transform="translate(90 590)">
+        <g transform="translate(0 524) scale(1.2)">
           {overview ? <Overview illuminated={focus === "illumination"} phase={phase} /> : <Atmosphere focus={focus} phase={phase} />}
-          <text x="450" y="615" textAnchor="middle" fill="#9bb5c9" fontSize="19" fontFamily="Inter, sans-serif">
-            Diagram · not to scale
-          </text>
         </g>
+        <text x="1056" y="1220" textAnchor="end" fill="#9bb5c9" fontSize="19" fontFamily="Inter, sans-serif">
+          Diagram · not to scale
+        </text>
       </svg>
     </AbsoluteFill>
   );

@@ -103,11 +103,11 @@ export async function toFactShortProps(
         ? (scene.captionPosition.startsWith("top") ? "top" : "bottom")
         : undefined;
       if (!captionPosition && asset && assetUrl && (asset.kind === "image" || asset.kind === "video")) {
-        const placementKey = `${asset.id}:${scene.start < 2.5 ? "title" : "clear"}`;
+        const placementKey = `${asset.id}:${scene.end - scene.start}`;
         let placement = placements.get(placementKey);
         if (!placement) {
           placement = captionPositionFor(assetUrl, asset.kind,
-            Math.min(asset.durationSec ?? scene.end - scene.start, scene.end - scene.start), scene.start >= 2.5);
+            Math.min(asset.durationSec ?? scene.end - scene.start, scene.end - scene.start));
           placements.set(placementKey, placement);
         }
         captionPosition = await placement;

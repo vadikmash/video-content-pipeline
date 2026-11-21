@@ -19,7 +19,6 @@ import { musicVolume, speechSpans } from "./music";
 import { CAPTION_LAYOUT, type FactShortProps, type SceneProp, type WordProp } from "./props";
 
 const BG = "#0f172a";
-const ACCENT = "#fbbf24";
 const TEXT = "#f8fafc";
 const FONT = "Inter, system-ui, -apple-system, Helvetica, Arial, sans-serif";
 
@@ -66,10 +65,6 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
           <Scene scene={scene} />
         </Sequence>
       ))}
-
-      <Sequence from={0} durationInFrames={toFrames(2.5)} name="title">
-        <TitleCard title={props.title} />
-      </Sequence>
 
       <Captions words={props.words} timeline={timeline} />
     </AbsoluteFill>
@@ -135,33 +130,6 @@ const Backdrop: React.FC = () => {
   );
 };
 
-const TitleCard: React.FC<{ title: string }> = ({ title }) => {
-  const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
-  const opacity = interpolate(frame, [0, 10, durationInFrames - 12, durationInFrames], [0, 1, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  return (
-    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 220, opacity }}>
-      <div
-        style={{
-          background: ACCENT,
-          color: BG,
-          padding: "20px 40px",
-          borderRadius: 20,
-          fontSize: 56,
-          fontWeight: 900,
-          maxWidth: 900,
-          textAlign: "center",
-        }}
-      >
-        {title}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
 const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visualTimeline> }> = ({ words, timeline }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -170,7 +138,7 @@ const Captions: React.FC<{ words: WordProp[]; timeline: ReturnType<typeof visual
   const chunk = chunkAt(chunks, time);
   if (!chunk) return null;
   const interval = timeline.find(({ start, end }) => frame >= start && frame < end);
-  const position = frame < Math.round(2.5 * fps) ? "bottom" : interval?.captionPosition ?? "bottom";
+  const position = interval?.captionPosition ?? "bottom";
   const lines = captionLines(chunk.words);
   const top = height * (position.startsWith("top") ? CAPTION_LAYOUT.top : CAPTION_LAYOUT.bottom);
   return (
