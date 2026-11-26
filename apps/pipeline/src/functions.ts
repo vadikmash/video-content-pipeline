@@ -18,6 +18,7 @@ import {
 } from "./stages/index";
 import { dbStore } from "./store/db";
 import { replaceReviewedAsset } from "./stages/replace-asset";
+import { animateReviewedVideo } from "./stages/animate-review";
 
 const deps = { store: dbStore, registry };
 
@@ -228,10 +229,33 @@ export const onIdeasDiscover = inngest.createFunction(
 
 const workByName = new Map(WORK_STAGES.map((s) => [s.name, s]));
 
+export const onVideoAnimate = inngest.createFunction(
+  {
+    id: "video-animate",
+    name: "Make video fully animated",
+    triggers: [events.videoAnimate],
+    cancelOn: cancelOnReject,
+    retries: 2,
+    concurrency: { limit: 1, key: '"video-render"', scope: "env" },
+    onFailure: async ({ event }) => {
+      const input = event.data.event.data as { projectId: string; requestId: string };
+      await releaseVideoReview(input.projectId, input.requestId, "Animation failed. Your previous preview is available. Try again.");
+    },
+  },
+  async ({ event, step }) => step.run("animate-and-render", async () => {
+    try {
+      await animateReviewedVideo(event.data);
+    } catch (error) {
+      mapError(error);
+    }
+  }),
+);
+
 export const functions = [
   ...STAGES.map((name) => (isGate(name) ? gateFunction(name) : stageFunction(workByName.get(name)!))),
   onProjectRejected,
   onAssetReplace,
+  onVideoAnimate,
   onIdeasDiscover,
 ];
 

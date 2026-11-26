@@ -10,6 +10,7 @@ export const EventSchemas = {
   "stage.completed": z.object({ projectId: Id, stage: z.string(), artifactId: Id.optional() }),
   "script.approved": z.object({ projectId: Id, scriptId: Id, version: z.number().int().positive() }),
   "render.approved": z.object({ projectId: Id, renderId: Id, requestId: Id.optional() }),
+  "video.animate": z.object({ projectId: Id, renderId: Id, requestId: Id }),
   "asset.replace": z.object({
     projectId: Id, renderId: Id, requestId: Id, beatId: Id, visual: StoryboardVisual,
   }),

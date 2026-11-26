@@ -2,6 +2,8 @@
 
 Local production pipeline for vertical factual Shorts. **M2 shipped** storyboard planning, stock and illustrated scenes, asset replacement and bilingual diagram rendering. Four reference cuts in English and Russian reached YouTube with additional manual production work. **M3 is planned** to let an editor make one Short in a chosen language, review a quick preview and cover, select a soundtrack and upload to a chosen YouTube channel. A second language can be requested separately. [M3 production plan](docs/m3-production-plan.md) · [Architecture and milestones](docs/tech-plan.md)
 
+**M2.5 is next** for animation quality, combining shared motion tools, bespoke Remotion sequences and visual revision. Start implementation from the [M2.5 plan and fresh-chat handoff](docs/m2.5-animation-quality-plan.md).
+
 ## Layout
 
 ```
@@ -42,6 +44,8 @@ Hand-pick an idea that has an evidence URL other than its origin post (or mark i
 Dry-run projects keep using fakes for every paid port.
 
 The authored lunar-eclipse and orbital-freefall diagrams support English and Russian labels. Each cut uses its own narration timings and bundled Latin/Cyrillic Inter captions. M3 will add language selection, optional adaptations and diagram authoring to the dashboard.
+
+Choose **Fully animated** beside Select to make every scene a narration-timed Remotion vector illustration. At video review, **Make fully animated** rebuilds an existing cut using its saved script and narration. The previous preview stays available if conversion fails.
 
 At video review, expand **Replace asset** on a stock or still scene. Enter new search terms or an illustration prompt and select **Replace and render**. The dashboard opens the new preview at the same approval gate. Pixabay and GPT Image record usage in Postgres and defer jobs after a rate-limit response.
 

@@ -1,12 +1,13 @@
 import { z } from "zod";
+import { VectorAnimation } from "@vcp/core/animation";
 
 /**
- * Props for the FactShort composition. Kept free of workspace imports so the
- * Remotion bundle stays self-contained; the pipeline maps core artifacts to this.
+ * Props for the FactShort composition. The shared vector schema uses browser-safe
+ * data types; the pipeline maps stored artifacts to these props.
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.6.0";
+export const TEMPLATE_VERSION = "1.7.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
@@ -30,7 +31,8 @@ export const SceneProp = z.object({
   start: z.number(),
   end: z.number(),
   text: z.string(),
-  kind: z.enum(["type", "stock", "still", "clip", "diagram"]),
+  kind: z.enum(["type", "stock", "still", "clip", "diagram", "animation"]),
+  animation: VectorAnimation.optional(),
   captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
   asset: SceneAsset.optional(),
   diagram: z.discriminatedUnion("kind", [

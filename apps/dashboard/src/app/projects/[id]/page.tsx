@@ -37,7 +37,7 @@ import { Tag } from "@/components/ui/Tag";
 import type { MetaItem, StageRun } from "@/components/ui/types";
 import { VerticalPreview } from "@/components/ui/VerticalPreview";
 import { blobUrl } from "@/lib/blob";
-import { approveScript, approveVideo, publishUpload, rejectProject, replaceAsset, retryStage } from "./actions";
+import { approveScript, approveVideo, makeFullyAnimated, publishUpload, rejectProject, replaceAsset, retryStage } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -220,6 +220,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         title="Render"
         meta={render ? `${render.templateId}@${render.templateVersion} · ${mediaTime(render.durationSec)}` : undefined}
         status={statusOf("render")}
+        actions={reviewRender ? (
+          <form action={makeFullyAnimated.bind(null, project.id, reviewRender.id)}>
+            <SubmitButton>
+              {project.visualMode === "animated" ? "Regenerate animation" : "Make fully animated"}
+            </SubmitButton>
+          </form>
+        ) : undefined}
         collapsible
         defaultOpen={open.includes("render")}
       >
@@ -261,7 +268,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         oneLiner={idea?.oneLiner}
         status={project.status}
         stages={runs}
-        tags={project.dryRun ? <Tag>dry run</Tag> : undefined}
+        tags={<><Tag>{project.visualMode === "animated" ? "Fully animated" : "Mixed media"}</Tag>{project.dryRun ? <Tag>dry run</Tag> : null}</>}
         live={live ? <LiveIndicator updatedAt={Date.now()} /> : undefined}
         actions={project.status === "active" ? <RejectControl action={reject} /> : undefined}
       />
@@ -419,6 +426,7 @@ function visualText(scene: Scene, script?: Script): string {
   const v = scene.visual;
   if (v.kind === "stock") return v.query;
   if (v.kind === "still" || v.kind === "clip") return v.prompt;
+  if (v.kind === "animation") return v.plan.description;
   if (v.kind === "type") {
     const text =
       scene.beatId === "hook"

@@ -1,11 +1,11 @@
-import { inputHash, type Asset, type BlobStore, type ResolvedPorts, type Scene, type VisualIntent } from "@vcp/core";
+import { inputHash, type Asset, type BlobStore, type ResolvedPorts, type Scene } from "@vcp/core";
 import { limits } from "@vcp/limits";
 import { StageError, canUseVisualProvider, defineStage } from "./context";
 
 const EXT: Record<string, string> = { "video/mp4": "mp4", "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 /** Stylised stills do not trigger the disclosure; photoreal depictions and clips do. */
-export function isSyntheticDepiction(visual: VisualIntent, asset: Asset): boolean {
+export function isSyntheticDepiction(visual: Scene["visual"], asset: Asset): boolean {
   return visual.kind === "clip" || asset.synthetic;
 }
 
@@ -28,7 +28,7 @@ export async function resolveAsset(
   const seconds = Math.max(1, scene.end - scene.start);
   const imageOptions = { width: 1080, height: 1920, requestId };
 
-  if (v.kind === "type" || v.kind === "diagram") return undefined;
+  if (v.kind === "type" || v.kind === "diagram" || v.kind === "animation") return undefined;
 
   if (v.kind === "stock") {
     const hits = await ports.StockSearch.search(v.query, { orientation: v.orientation, minDurationSec: seconds, perPage: 3 });
@@ -59,12 +59,16 @@ export const assets = defineStage({
       storyboardId: board.id,
       scenes: board.scenes.map((s) => ({ beatId: s.beatId, visual: s.visual })),
       allowImageFallback: canUseVisualProvider(ctx, "ImageGen"),
+      visualMode: ctx.project.visualMode,
     };
   },
   async run(ctx, input) {
     const { ports, store, project } = ctx;
     const board = await store.latestStoryboard(project.id);
     if (!board || board.id !== input.storyboardId) throw new StageError("assets: storyboard changed under us", false);
+    if (input.visualMode === "animated" && board.scenes.some(scene => scene.visual.kind !== "animation")) {
+      throw new StageError("Fully animated projects need an animation for every scene", false);
+    }
 
     let synthetic = false;
     const scenes: Scene[] = [];

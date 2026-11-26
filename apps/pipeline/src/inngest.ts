@@ -15,6 +15,7 @@ export const events = {
   stageCompleted: eventType("stage.completed", { schema: EventSchemas["stage.completed"] }),
   scriptApproved: eventType("script.approved", { schema: EventSchemas["script.approved"] }),
   renderApproved: eventType("render.approved", { schema: EventSchemas["render.approved"] }),
+  videoAnimate: eventType("video.animate", { schema: EventSchemas["video.animate"] }),
   assetReplace: eventType("asset.replace", { schema: EventSchemas["asset.replace"] }),
   uploadPublish: eventType("upload.publish", { schema: EventSchemas["upload.publish"] }),
   projectRejected: eventType("project.rejected", { schema: EventSchemas["project.rejected"] }),

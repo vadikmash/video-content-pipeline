@@ -189,6 +189,16 @@ Pages:
 
 One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60 s. Props are the storyboard plus asset URLs. Scenes are React components keyed by `VisualIntent.kind`: typography, Ken Burns on a still, cropped stock with a slow push, diagram scenes drawn in SVG, short phrase captions, optional music ducked under narration, and source credits in the publish description. Rendering runs locally first (`npx remotion render`), then in a container worker with Chromium and FFmpeg, then Remotion Lambda only if a single worker falls behind. Remotion is free for an individual, including automation; check the licence if a team forms.
 
+### Fully animated production
+
+Choose **Fully animated** when selecting an idea, or use **Make fully animated** at video review to rebuild a saved cut from its approved script and narration. The choice is stored on the project. Existing projects default to mixed media.
+
+The storyboard stage asks the configured TextModel to design original SVG objects and their motion for every timed beat, including the hook and outro. The model supplies groups, ellipses, rectangles, paths and short labels with keyframes anchored to indexed narration words. The pipeline validates object references, unique property tracks and increasing anchors within each beat, then resolves the anchors to absolute narration times. Illustrations occupy the area above the captions. Remotion evaluates the saved keyframes from the composition FPS and each scene's actual sequence origin.
+
+Fully animated storyboards use local vector scenes throughout. Asset resolution completes with zero media assets. Model settings and animation prompt version participate in the storyboard input hash. Video-review conversion caches its authored plan before rendering, then commits the new storyboard, render and project style in the existing review transaction. Failed conversion releases the review lock and leaves the previous preview available. Each regenerated render returns to video review.
+
+The implementation lives inside storyboard planning and the video-review conversion worker. A separate `animate` pipeline stage can be introduced if animation authoring needs independent scheduling or approvals.
+
 ## 8. Data and infrastructure
 
 - Postgres (Drizzle): `ideas`, `projects`, `stages`, `scripts`, `narrations`, `storyboards`, `assets`, `renders`, `uploads`, `providers_config`, `quota_ledger`, `events`.
@@ -200,6 +210,7 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 
 - Contract tests per port, run against both the fake and the real provider (real ones gated behind an env flag).
 - A golden end-to-end test: manual idea → fake providers → a real Remotion render of a placeholder video → fake publisher. Runs locally against the work stages. CI and a full dashboard-to-orchestrator test are planned.
+- For fully animated production, render a Short mixing a custom vector scene with an existing scene. Check cue timing within one frame of narration, caption clearance, invalid-plan fallback, retry reuse, narration changes, and the zero-selected-beats path.
 - `dry-run` mode on any project: executes everything up to render with fakes for paid providers, so you can check a storyboard without spending credits.
 
 ## 10. Milestones
@@ -209,7 +220,8 @@ One Remotion project with a `FactShort` composition: 1080×1920, 30 fps, 45–60
 | M0 · Local skeleton | Shipped. Manual Ideas inbox, local orchestration and persistence, provider fakes and a golden render path. |
 | M1 · Real production stages | Shipped the source-backed script workflow, real voice/alignment, local Remotion renderer, private YouTube upload and manual publishing gate. |
 | M2 · Visual production | Shipped Pixabay, GPT Image, storyboard planning, stock/still replacement, and quota/circuit handling for stock and image generation. Four reference cuts in English and Russian used additional manual work. |
-| **M3 · Selectable language and channel** | **Next.** Produce one Short in the chosen language, select its YouTube destination, edit explanations, review a quick preview and cover, select licensed music and approve that version for private upload. Request an adaptation only when desired. See the [implementation order and release rehearsal](m3-production-plan.md). |
+| **M2.5 · Animation quality** | **Next, planned.** Improve shared motion tools and let the model author bespoke Remotion sequences spanning narration beats. Establish the style with a continuous popcorn pilot, then rebuild the full cut through visual critique and revision. See the [plan and implementation handoff](m2.5-animation-quality-plan.md). |
+| M3 · Selectable language and channel | After M2.5. Produce one Short in the chosen language, select its YouTube destination, edit explanations, review a quick preview and cover, select licensed music and approve that version for private upload. Request an adaptation only when desired. See the [implementation order and release rehearsal](m3-production-plan.md). |
 | M4 · Discovery and research | Former M3 scope. Build real sources and web research, scoring and semantic deduplication behind the existing inbox, manual trigger and daily cron. This work can run in parallel with M3 using the shared idea, evidence and selection contract. |
 | M5 · Operations, deployment and feedback | Former M4 scope. Deploy with access control, migration and deployment CI, shared storage, recovery and observability. Harden scheduling and add YouTube Analytics feedback per idea, language and destination channel. |
 

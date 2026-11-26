@@ -1,6 +1,6 @@
 "use server";
 
-import { Domain, NewIdea } from "@vcp/core";
+import { Domain, NewIdea, VisualMode } from "@vcp/core";
 import { createProject, getIdea, insertIdea, listIdeas, logEvent, setIdeaStatus } from "@vcp/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -69,14 +69,15 @@ export async function restoreIdea(id: string): Promise<void> {
 }
 
 /** The only place a video can start. Creates the project and emits idea.selected. */
-export async function selectIdea(id: string, dryRun = false): Promise<void> {
+export async function selectIdea(id: string, dryRun = false, formData?: FormData): Promise<void> {
   const idea = await getIdea(id);
   if (!idea) throw new Error("idea not found");
   if (idea.status === "selected" || idea.status === "done") throw new Error("idea already selected");
 
-  const project = await createProject(id, { dryRun });
+  const visualMode = VisualMode.parse(formData?.get("visualMode") ?? "mixed");
+  const project = await createProject(id, { dryRun, visualMode });
   await setIdeaStatus(id, "selected");
-  await logEvent(project.id, "idea.selected", { ideaId: id, dryRun });
+  await logEvent(project.id, "idea.selected", { ideaId: id, dryRun, visualMode });
   await sendEvent("idea.selected", { projectId: project.id, ideaId: id });
 
   revalidatePath("/ideas");

@@ -5,13 +5,14 @@ import { Icon } from "./Icon";
 import { IdeaWhy } from "./IdeaWhy";
 import { StatusBadge } from "./StatusBadge";
 import { Tag } from "./Tag";
+import { Field, Select } from "./Field";
 
 type Action = () => Promise<void>;
 
 export interface IdeaRowProps {
   idea: Idea;
   projectHref?: string;
-  actions: { select: Action; shortlist: Action; reject: Action; restore: Action };
+  actions: { select: (formData: FormData) => Promise<void>; shortlist: Action; reject: Action; restore: Action };
   defaultOpen?: boolean;
 }
 
@@ -34,7 +35,13 @@ function IdeaActions({ idea, projectHref, actions }: Omit<IdeaRowProps, "default
   }
   return (
     <>
-      <form action={actions.select}>
+      <form action={actions.select} className="vcp-stack">
+        <Field label="Visual style">
+          <Select name="visualMode" defaultValue="mixed" options={[
+            { value: "mixed", label: "Mixed media" },
+            { value: "animated", label: "Fully animated" },
+          ]} />
+        </Field>
         <Button size="sm" variant="primary">
           Select
         </Button>

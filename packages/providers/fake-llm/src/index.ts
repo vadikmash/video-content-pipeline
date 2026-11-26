@@ -126,6 +126,21 @@ const round = (n: number) => Math.round(n * 100) / 100;
 export function fixtureFor(prompt: Prompt): unknown {
   const ctx = prompt.context ?? {};
   switch (prompt.kind) {
+    case "animation":
+      return { scenes: (ctx.beats as { beatId: string; words: { index: number }[] }[]).map(beat => ({
+        beatId: beat.beatId,
+        animation: {
+          description: "An illustrated object moves with the narration",
+          nodes: [
+            { id: "body", parentId: null, x: 540, y: 760, fill: "#fbbf24", stroke: "#fff3d6", strokeWidth: 5, shape: { kind: "ellipse", rx: 220, ry: 300 } },
+            { id: "water", parentId: null, x: 540, y: 760, fill: "#63c6ff", stroke: "none", strokeWidth: 0, shape: { kind: "ellipse", rx: 55, ry: 75 } },
+          ],
+          tracks: [{ nodeId: "water", property: "y", keyframes: [
+            { word: beat.words[0]!.index, edge: "start", value: 60 },
+            { word: beat.words[beat.words.length - 1]!.index, edge: "end", value: -100 },
+          ] }],
+        },
+      })) };
     case "brief":
       return briefFixture(ctx);
     case "script":
