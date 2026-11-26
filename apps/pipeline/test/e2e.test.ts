@@ -18,6 +18,21 @@ describe.skipIf(!enabled)("golden e2e with real Remotion render", () => {
   const world = makeWorld({ Renderer: { providerId: "render-remotion", options: { concurrency: 2 } } });
   afterAll(() => world.cleanup());
 
+  it("renders a fully animated project without acquiring media assets", async () => {
+    const animated = makeWorld({ Renderer: { providerId: "render-remotion", options: { concurrency: 2 } } });
+    try {
+      await animated.store.updateProject(animated.project.id, { visualMode: "animated" });
+      for (const stage of WORK_STAGES.slice(0, 6)) await runStage(stage, animated.project.id, animated.deps);
+      const board = await animated.store.latestStoryboard(animated.project.id);
+      const render = await animated.store.latestRender(animated.project.id);
+      expect(board!.scenes.every(scene => scene.visual.kind === "animation")).toBe(true);
+      expect(animated.store.assets.size).toBe(0);
+      expect(statSync(path.join(animated.dir, render!.blob.key)).size).toBeGreaterThan(10_000);
+    } finally {
+      animated.cleanup();
+    }
+  }, 240_000);
+
   it("produces an MP4 and a thumbnail, then publishes through the fake publisher", async () => {
     const { project, store, deps } = world;
 

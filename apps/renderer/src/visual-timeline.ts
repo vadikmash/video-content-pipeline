@@ -2,7 +2,7 @@ import type { SceneProp } from "./props";
 
 export function visualTimeline(scenes: SceneProp[], fps: number, duration: number) {
   const sorted = [...scenes].sort((a, b) => a.start - b.start);
-  const hasVisual = (scene: SceneProp) => scene.diagram || scene.asset?.kind === "image" || scene.asset?.kind === "video";
+  const hasVisual = (scene: SceneProp) => scene.animation || scene.diagram || scene.asset?.kind === "image" || scene.asset?.kind === "video";
   const still = sorted.find((scene) => scene.asset?.kind === "image");
   const firstVisual = sorted.find(hasVisual);
   let previousVisual: SceneProp | undefined;

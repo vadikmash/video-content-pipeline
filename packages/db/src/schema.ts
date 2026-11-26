@@ -7,6 +7,7 @@ import type {
   Scene,
   UploadMeta,
   Word,
+  VisualMode,
 } from "@vcp/core";
 import {
   boolean,
@@ -55,6 +56,7 @@ export const projects = pgTable("projects", {
   currentStage: text("current_stage"),
   rejectReason: text("reject_reason"),
   dryRun: boolean("dry_run").notNull().default(false),
+  visualMode: text("visual_mode").$type<VisualMode>().notNull().default("mixed"),
   runId: text("run_id"),
   createdAt: createdAt(),
   updatedAt: ts("updated_at").notNull().defaultNow(),

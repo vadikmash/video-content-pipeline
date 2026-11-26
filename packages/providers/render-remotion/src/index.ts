@@ -119,6 +119,7 @@ export async function toFactShortProps(
         end: scene.end,
         text: input.beats[scene.beatId] ?? "",
         kind: scene.visual.kind,
+        animation: scene.visual.kind === "animation" ? scene.visual.plan : undefined,
         diagram: diagram?.success ? diagram.data : undefined,
         asset: asset
           ? { kind: asset.kind, url: assetUrl!, attribution: asset.attribution.text || undefined, durationSec: asset.durationSec }

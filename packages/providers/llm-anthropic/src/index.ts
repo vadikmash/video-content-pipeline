@@ -39,7 +39,7 @@ export function create(ctx: ProviderContext): TextModel {
       const jsonSchema = strictJsonSchema(schema);
       const { system, user } = promptText(prompt);
       return parseWithOneRetry(schema, user, (message) =>
-        complete(client!, model, effort, jsonSchema, system, message),
+        complete(client!, model, effort, jsonSchema, system, message, prompt.kind === "animation" ? 32000 : 16000),
       );
     },
   };
@@ -52,19 +52,23 @@ async function complete(
   schema: Record<string, unknown>,
   system: string,
   user: string,
+  maxTokens: number,
 ): Promise<unknown> {
   let response: Anthropic.Beta.BetaMessage;
   try {
-    response = await client.beta.messages.create({
+    const request = {
       model,
-      max_tokens: 16000,
+      max_tokens: maxTokens,
       system,
-      messages: [{ role: "user", content: user }],
-      output_config: { effort, format: { type: "json_schema", schema } },
+      messages: [{ role: "user" as const, content: user }],
+      output_config: { effort, format: { type: "json_schema" as const, schema } },
       // On a safety decline, the API re-runs the request on a fallback model it picks.
       betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-    });
+      fallbacks: "default" as const,
+    };
+    response = maxTokens > 16000
+      ? await client.beta.messages.stream(request).finalMessage()
+      : await client.beta.messages.create(request);
   } catch (err) {
     if (err instanceof Anthropic.APIError) {
       throw new ProviderError(`llm-anthropic: ${err.status ?? "network"} ${err.message}`, err.status);

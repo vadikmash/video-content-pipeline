@@ -22,7 +22,7 @@ export interface DiscoverCtx {
   limit?: number;
 }
 
-export type PromptKind = "brief" | "script" | "storyboard" | "score" | "other";
+export type PromptKind = "brief" | "script" | "storyboard" | "animation" | "score" | "other";
 
 export interface Prompt {
   kind: PromptKind;

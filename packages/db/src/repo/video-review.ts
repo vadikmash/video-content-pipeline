@@ -1,5 +1,5 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
-import type { Render, Storyboard } from "@vcp/core";
+import type { Render, Storyboard, VisualMode } from "@vcp/core";
 import { getDb } from "../client";
 import { projects, renders, stages, storyboards } from "../schema";
 
@@ -58,7 +58,7 @@ export async function acceptVideoApproval(projectId: string, renderId: string, r
   return approved === true;
 }
 
-export async function commitReplacement(projectId: string, requestId: string, board: Storyboard, render: Render) {
+export async function commitReplacement(projectId: string, requestId: string, board: Storyboard, render: Render, visualMode?: VisualMode) {
   return reviewTransaction(projectId, async (tx) => {
     const [row] = await tx.update(stages).set({ status: "waiting", artifactId: null, error: null })
       .where(and(gateRow(projectId), eq(stages.status, "running"), eq(stages.artifactId, requestId)))
@@ -66,6 +66,7 @@ export async function commitReplacement(projectId: string, requestId: string, bo
     if (!row) return;
     await tx.insert(storyboards).values({ ...board, createdAt: new Date(board.createdAt) });
     await tx.insert(renders).values({ ...render, createdAt: new Date(render.createdAt) });
+    if (visualMode) await tx.update(projects).set({ visualMode, updatedAt: new Date() }).where(eq(projects.id, projectId));
     await tx.update(stages).set({ artifactId: board.id })
       .where(and(eq(stages.projectId, projectId), eq(stages.name, "assets")));
     await tx.update(stages).set({ artifactId: render.id, finishedAt: new Date() })

@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import { Project, type ProjectStatus, newId } from "@vcp/core";
+import { Project, type ProjectStatus, type VisualMode, newId } from "@vcp/core";
 import { getDb } from "../client";
 import { projects } from "../schema";
 
@@ -13,6 +13,7 @@ export function toProject(r: Row): Project {
     currentStage: r.currentStage ?? undefined,
     rejectReason: r.rejectReason ?? undefined,
     dryRun: r.dryRun,
+    visualMode: r.visualMode,
     runId: r.runId ?? undefined,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
@@ -39,10 +40,10 @@ export async function getProjectByIdea(ideaId: string): Promise<Project | undefi
   return row ? toProject(row) : undefined;
 }
 
-export async function createProject(ideaId: string, opts: { dryRun?: boolean } = {}): Promise<Project> {
+export async function createProject(ideaId: string, opts: { dryRun?: boolean; visualMode?: VisualMode } = {}): Promise<Project> {
   const [row] = await getDb()
     .insert(projects)
-    .values({ id: newId(), ideaId, status: "active", dryRun: opts.dryRun ?? false })
+    .values({ id: newId(), ideaId, status: "active", dryRun: opts.dryRun ?? false, visualMode: opts.visualMode ?? "mixed" })
     .returning();
   return toProject(row!);
 }

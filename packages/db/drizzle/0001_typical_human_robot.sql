@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "visual_mode" text DEFAULT 'mixed' NOT NULL;

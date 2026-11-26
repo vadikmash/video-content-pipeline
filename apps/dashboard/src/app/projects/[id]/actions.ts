@@ -87,6 +87,18 @@ export async function approveVideo(projectId: string, renderId: string): Promise
   revalidatePath(`/projects/${projectId}`);
 }
 
+export async function makeFullyAnimated(projectId: string, renderId: string): Promise<void> {
+  const requestId = newId();
+  if (!await reserveVideoReview(projectId, renderId, requestId)) return;
+  try {
+    await sendEvent("video.animate", { projectId, renderId, requestId }, { id: requestId });
+  } catch (error) {
+    await releaseVideoReview(projectId, requestId, "Could not start animation. Try again.");
+    throw error;
+  }
+  revalidatePath(`/projects/${projectId}`);
+}
+
 export async function replaceAsset(projectId: string, renderId: string, beatId: string, formData: FormData): Promise<void> {
   const render = await getRender(renderId);
   const board = render?.projectId === projectId ? await getStoryboard(render.storyboardId) : undefined;

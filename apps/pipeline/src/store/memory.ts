@@ -42,7 +42,7 @@ export class MemoryStore implements Store {
 
   addProject(ideaId: string, dryRun = false): Project {
     const now = nowIso();
-    const p: Project = { id: newId(), ideaId, status: "active", dryRun, createdAt: now, updatedAt: now };
+    const p: Project = { id: newId(), ideaId, status: "active", dryRun, visualMode: "mixed", createdAt: now, updatedAt: now };
     this.projects.set(p.id, p);
     return p;
   }

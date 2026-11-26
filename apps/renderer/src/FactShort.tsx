@@ -15,6 +15,7 @@ import { captionChunks, captionLines, chunkAt } from "./captions";
 import { CAPTION_FONT, captionFontReady } from "./fonts";
 import { visualTimeline, visualSequences } from "./visual-timeline";
 import { ProcessVisual } from "./ProcessVisual";
+import { VectorScene } from "./VectorScene";
 import { musicVolume, speechSpans } from "./music";
 import { CAPTION_LAYOUT, type FactShortProps, type SceneProp, type WordProp } from "./props";
 
@@ -62,7 +63,7 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
           durationInFrames={end - start}
           name={`${beatId}:${scene.kind}`}
         >
-          <Scene scene={scene} />
+          <Scene scene={scene} startFrame={start} />
         </Sequence>
       ))}
 
@@ -72,10 +73,12 @@ export const FactShort: React.FC<FactShortProps> = (props) => {
 };
 
 
-const Scene: React.FC<{ scene: SceneProp }> = ({ scene }) => {
+const Scene: React.FC<{ scene: SceneProp; startFrame: number }> = ({ scene, startFrame }) => {
   const frame = useCurrentFrame();
   const { durationInFrames, fps } = useVideoConfig();
   const asset = scene.asset;
+
+  if (scene.animation) return <VectorScene plan={scene.animation} sceneStart={startFrame / fps} />;
 
   if (asset?.kind === "video") {
     const lastFrame = asset.durationSec === undefined ? null : Math.max(0, Math.floor(asset.durationSec * fps) - 1);

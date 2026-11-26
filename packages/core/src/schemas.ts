@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { VectorAnimation } from "./animation";
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -125,7 +126,11 @@ export const VisualIntent = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("diagram"), spec: z.record(z.string(), z.unknown()) }),
 ]);
 export type VisualIntent = z.infer<typeof VisualIntent>;
-export type VisualKind = VisualIntent["kind"];
+export const SceneVisual = z.discriminatedUnion("kind", [
+  ...VisualIntent.options,
+  z.object({ kind: z.literal("animation"), plan: VectorAnimation }),
+]);
+export type VisualKind = z.infer<typeof SceneVisual>["kind"];
 
 export const Beat = z.object({
   id: Id,
@@ -192,7 +197,7 @@ export const Scene = z.object({
   beatId: Id,
   start: z.number().nonnegative(),
   end: z.number().nonnegative(),
-  visual: VisualIntent,
+  visual: SceneVisual,
   assetId: Id.optional(),
   captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
 });
@@ -300,6 +305,8 @@ export type Upload = z.infer<typeof Upload>;
 
 export const ProjectStatus = z.enum(["active", "waiting", "rejected", "failed", "published"]);
 export type ProjectStatus = z.infer<typeof ProjectStatus>;
+export const VisualMode = z.enum(["mixed", "animated"]);
+export type VisualMode = z.infer<typeof VisualMode>;
 
 export const Project = z.object({
   id: Id,
@@ -308,6 +315,7 @@ export const Project = z.object({
   currentStage: z.string().optional(),
   rejectReason: z.string().optional(),
   dryRun: z.boolean().default(false),
+  visualMode: VisualMode.default("mixed"),
   runId: z.string().optional(),
   createdAt: IsoDate,
   updatedAt: IsoDate,

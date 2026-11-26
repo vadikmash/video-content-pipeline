@@ -43,6 +43,8 @@ Dry-run projects keep using fakes for every paid port.
 
 The authored lunar-eclipse and orbital-freefall diagrams support English and Russian labels. Each cut uses its own narration timings and bundled Latin/Cyrillic Inter captions. M3 will add language selection, optional adaptations and diagram authoring to the dashboard.
 
+Choose **Fully animated** beside Select to make every scene a narration-timed Remotion vector illustration. At video review, **Make fully animated** rebuilds an existing cut using its saved script and narration. The previous preview stays available if conversion fails.
+
 At video review, expand **Replace asset** on a stock or still scene. Enter new search terms or an illustration prompt and select **Replace and render**. The dashboard opens the new preview at the same approval gate. Pixabay and GPT Image record usage in Postgres and defer jobs after a rate-limit response.
 
 ## Tests

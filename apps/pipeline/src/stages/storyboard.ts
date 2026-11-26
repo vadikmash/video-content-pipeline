@@ -2,6 +2,7 @@ import { FlowDiagram, ProcessDiagram, Scene, StoryboardVisual, newId, nowIso, ty
 import { limits } from "@vcp/limits";
 import { z } from "zod";
 import { StageError, canUseVisualProvider, defineStage, isFakeProvider } from "./context";
+import { ANIMATION_PROMPT_VERSION, planAnimatedScenes } from "./animation";
 
 const VisualPlan = z.object({
   scenes: z.array(Scene.pick({ beatId: true }).extend({
@@ -57,6 +58,9 @@ export const storyboard = defineStage({
       narrationId: narration.id,
       scriptId: narration.scriptId,
       planVersion: 3,
+      visualMode: ctx.project.visualMode,
+      animationPromptVersion: ANIMATION_PROMPT_VERSION,
+      modelOptions: ctx.config.ports.TextModel?.options,
       stock: canUseVisualProvider(ctx, "StockSearch"),
       still: canUseVisualProvider(ctx, "ImageGen"),
     };
@@ -70,6 +74,21 @@ export const storyboard = defineStage({
     }
 
     const timings = beatTimings(script, narration.words);
+    if (input.visualMode === "animated") {
+      const scenes = await planAnimatedScenes(ctx, timings, narration, script);
+      const board: Storyboard = {
+        id: newId(),
+        projectId: project.id,
+        narrationId: narration.id,
+        version: await store.nextStoryboardVersion(project.id),
+        scenes,
+        containsSyntheticMedia: false,
+        provider: ctx.ports.TextModel.id,
+        createdAt: nowIso(),
+      };
+      await store.insertStoryboard(board);
+      return { artifactId: board.id, summary: { version: board.version, scenes: scenes.length, visuals: "fully animated" } };
+    }
     const { TextModel } = ctx.ports;
     const visuals = new Map<string, VisualIntent>();
     await limits.acquire(TextModel.id);
