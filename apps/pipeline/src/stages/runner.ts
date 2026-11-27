@@ -10,6 +10,7 @@ import {
 } from "@vcp/core";
 import type { Store } from "../store/types";
 import { StageError, loadStageCtx, providerIdsFor, type StageDef, type StageResult } from "./context";
+import { currentUpload } from "./destination";
 
 export interface RunMeta {
   runId?: string;
@@ -95,9 +96,13 @@ export async function approveGate(
     if (scriptId) await store.markScriptReviewed(scriptId, by);
   }
   if (gate === "approve-publish") {
-    const up = await store.latestUpload(projectId);
-    if (up && typeof data.publishAt === "string") {
-      await store.updateUpload({ ...up, publishAt: data.publishAt });
+    const project = await store.getProject(projectId);
+    const { upload: up } = await currentUpload(store, projectId, project?.channelId);
+    if (up && (data.uploadId === undefined || data.uploadId === up.id)) {
+      const publishAt = typeof data.publishAt === "string" ? data.publishAt : undefined;
+      const publishTimeZone = publishAt && typeof data.publishTimeZone === "string" ? data.publishTimeZone : undefined;
+      // Always rewrite both: an approval without a time publishes now, even if an earlier one scheduled.
+      await store.updateUpload({ ...up, publishAt, publishTimeZone });
     }
   }
   await store.upsertStage(projectId, gate, {
@@ -109,6 +114,18 @@ export async function approveGate(
   });
   await store.updateProject(projectId, { status: "active", currentStage: gate });
   await store.logEvent(projectId, GATE_EVENTS[gate], { by, ...data });
+}
+
+/**
+ * An approval to publish counts only for the upload the gate currently shows: the latest
+ * render's upload to the project's saved destination. An approval for any other upload (the
+ * destination changed after the reviewer loaded the page) is stale and ignored.
+ */
+export async function isCurrentPublishApproval(projectId: string, uploadId: string, store: Store): Promise<boolean> {
+  const project = await store.getProject(projectId);
+  if (!project) return false;
+  const { upload } = await currentUpload(store, projectId, project.channelId);
+  return upload?.id === uploadId;
 }
 
 export async function markGateTimedOut(projectId: string, gate: GateName, store: Store): Promise<void> {

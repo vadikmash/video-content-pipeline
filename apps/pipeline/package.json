@@ -13,12 +13,14 @@
     "start": "tsx --env-file-if-exists=../../.env src/server.ts",
     "test": "vitest run --exclude test/e2e.test.ts",
     "test:e2e": "vitest run test/e2e.test.ts",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "channels": "tsx --env-file-if-exists=../../.env src/channels.ts"
   },
   "dependencies": {
     "@vcp/core": "workspace:*",
     "@vcp/db": "workspace:*",
     "@vcp/limits": "workspace:*",
+    "@vcp/provider-publish-youtube": "workspace:*",
     "@vcp/providers": "workspace:*",
     "@vcp/renderer": "workspace:*",
     "inngest": "^4.26.2",

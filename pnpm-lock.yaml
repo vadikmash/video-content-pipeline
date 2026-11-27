@@ -40,7 +40,7 @@ importers:
         version: link:../../packages/providers/fake-source
       inngest:
         specifier: ^4.26.2
-        version: 4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)
+        version: 4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)
       next:
         specifier: ^16.4.4
         version: 16.4.4(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -75,6 +75,9 @@ importers:
       '@vcp/limits':
         specifier: workspace:*
         version: link:../../packages/limits
+      '@vcp/provider-publish-youtube':
+        specifier: workspace:*
+        version: link:../../packages/providers/publish-youtube
       '@vcp/providers':
         specifier: workspace:*
         version: link:../../packages/providers/all
@@ -83,7 +86,7 @@ importers:
         version: link:../renderer
       inngest:
         specifier: ^4.26.2
-        version: 4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)
+        version: 4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)
       zod:
         specifier: ^4.6.7
         version: 4.6.7
@@ -7070,7 +7073,7 @@ snapshots:
       - encoding
       - supports-color
 
-  inngest@4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7):
+  inngest@4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7):
     dependencies:
       '@bufbuild/protobuf': 2.16.0
       '@inngest/ai': 0.1.8

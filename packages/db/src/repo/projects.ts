@@ -14,6 +14,7 @@ export function toProject(r: Row): Project {
     rejectReason: r.rejectReason ?? undefined,
     dryRun: r.dryRun,
     runId: r.runId ?? undefined,
+    channelId: r.channelId ?? undefined,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   });

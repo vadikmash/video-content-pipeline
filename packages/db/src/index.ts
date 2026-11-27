@@ -8,4 +8,5 @@ export * from "./repo/config";
 export * from "./repo/events";
 export * from "./repo/quota";
 export * from "./repo/video-review";
+export * from "./repo/channels";
 export { DEFAULT_PORT_BINDINGS } from "./defaults";

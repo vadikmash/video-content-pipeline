@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "./Button";
 import { cx } from "./format";
 import { Icon } from "./Icon";
@@ -35,15 +35,20 @@ export interface GateBannerProps {
   rejectAction: FormAction;
   /** True when the artifact the gate judges is missing. */
   disabled?: boolean;
+  /** Where approving sends the video (upload and publish gates). */
+  destination?: ReactNode;
   title?: string;
   description?: string;
   className?: string;
 }
 
-export function GateBanner({ gate, approveAction, rejectAction, disabled, title, description, className }: GateBannerProps) {
+export function GateBanner({ gate, approveAction, rejectAction, disabled, destination, title, description, className }: GateBannerProps) {
   const g = GATES[gate];
   const [rejecting, setRejecting] = useState(false);
   const [when, setWhen] = useState("");
+  // The schedule is read in the reviewer's zone and stored as an instant plus that zone.
+  const [zone, setZone] = useState("UTC");
+  useEffect(() => setZone(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"), []);
   const isPublish = gate === "approve-publish";
   return (
     <section className={cx("vcp-gate", className)} aria-label={`Paused for you: ${title ?? g.title}`}>
@@ -56,6 +61,7 @@ export function GateBanner({ gate, approveAction, rejectAction, disabled, title,
         <div className="vcp-gate-text">
           <h2 className="vcp-gate-title">{title ?? g.title}</h2>
           <p className="vcp-gate-desc">{description ?? g.body}</p>
+          {destination ? <div className="vcp-gate-destination">{destination}</div> : null}
         </div>
         {!rejecting ? (
           <form action={approveAction} className="vcp-gate-actions">
@@ -71,6 +77,12 @@ export function GateBanner({ gate, approveAction, rejectAction, disabled, title,
                   value={when}
                   onChange={(e) => setWhen(e.target.value)}
                 />
+              </label>
+            ) : null}
+            {isPublish && when ? (
+              <label className="vcp-field vcp-gate-when">
+                <span className="vcp-field-label">Time zone</span>
+                <input name="timeZone" className="vcp-input" value={zone} onChange={(e) => setZone(e.target.value)} required />
               </label>
             ) : null}
             <SubmitButton variant="primary" icon="check" className="vcp-gate-approve" disabled={disabled}>

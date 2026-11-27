@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { Asset, NewIdea, Render, Upload, Word, type BlobStore, type PortName, type Storyboard } from "@vcp/core";
 import { createLocalBlobStore } from "@vcp/provider-blob-local";
+import { channelForCredential } from "@vcp/provider-publish-youtube";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { createRegistry } from "./index";
@@ -238,7 +239,13 @@ describe("Publisher", () => {
       }
       const blobRef = await blob.put(`contracts/${p.id}-upload.mp4`, bytes, "video/mp4");
       const meta = { title: "vcp contract test", description: "Automated contract test upload.", tags: [], containsSyntheticMedia: false };
-      const up = await pub.upload({ ...render, blob: blobRef }, meta, "private");
+      // The contract channel is whichever channel YOUTUBE_CONTRACT_CREDENTIAL (default
+      // YOUTUBE_REFRESH_TOKEN) authenticates as; the adapter re-verifies it before each write.
+      const credentialRef = process.env.YOUTUBE_CONTRACT_CREDENTIAL ?? "YOUTUBE_REFRESH_TOKEN";
+      const dest = p.id === "publish-youtube"
+        ? { channelId: await channelForCredential(process.env, credentialRef), credentialRef }
+        : undefined;
+      const up = await pub.upload({ ...render, blob: blobRef }, meta, "private", dest);
       expect(() => Upload.parse(up)).not.toThrow();
       expect(up.privacy).toBe("private");
       // A real channel never gets a public test video: exercise the privacy change with
@@ -246,14 +253,14 @@ describe("Publisher", () => {
       const target = p.id === "publish-youtube" ? "unlisted" : "public";
       let passed = false;
       try {
-        const changed = await pub.setPrivacy(up, target);
+        const changed = await pub.setPrivacy(up, target, undefined, dest);
         expect(changed.privacy).toBe(target);
-        expect((await pub.status(changed)).privacy).toBe(target);
+        expect((await pub.status(changed, dest)).privacy).toBe(target);
         passed = true;
       } finally {
         if (p.id === "publish-youtube") {
           try {
-            await pub.setPrivacy(up, "private");
+            await pub.setPrivacy(up, "private", undefined, dest);
           } catch (err) {
             console.error(`could not restore ${up.remoteId} to private`, err);
             // Surface a failed restore, but never mask the assertion that failed above.

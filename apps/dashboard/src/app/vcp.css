@@ -103,6 +103,9 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: v
 .vcp-gate-text { flex: 1 1 280px; min-width: 0; }
 .vcp-gate-title { margin: 0; font-size: 17px; line-height: 24px; font-weight: 600; }
 .vcp-gate-desc { margin: 2px 0 0; color: var(--ink-muted); }
+.vcp-gate-destination { margin-top: 6px; font-size: 13px; }
+.vcp-channel-picker { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.vcp-channel-picker .vcp-field { min-width: 260px; flex: 1; }
 .vcp-gate-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); }
 .vcp-gate-when { min-width: 200px; }
 .vcp-gate-reject { display: grid; gap: var(--space-3); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--line); }

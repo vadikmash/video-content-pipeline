@@ -7,6 +7,9 @@ import { events, inngest } from "./inngest";
 import {
   WORK_STAGES,
   approveGate,
+  confirmRelease,
+  isCurrentPublishApproval,
+  upload as uploadStage,
   failProject,
   failGateRun,
   loadGateMode,
@@ -121,6 +124,29 @@ function gateFunction(gate: GateName) {
           });
           if (accepted) break;
         }
+      } else if (gate === "approve-publish") {
+        await step.run("mark-waiting", () => markGateWaiting(projectId, gate, dbStore, runId));
+        // Approvals name the upload they were given for; one for an upload that is no longer
+        // current (the destination changed) is ignored and the gate keeps waiting.
+        for (let revision = 0; ; revision++) {
+          const suffix = revision === 0 ? "" : `-${revision}`;
+          const approval = await step.waitForEvent(`wait-for-approval${suffix}`, {
+            event: events.uploadPublish, match: "data.projectId", timeout: "30d",
+          });
+          if (!approval) {
+            await step.run("timed-out", () => markGateTimedOut(projectId, gate, dbStore));
+            return { gate, outcome: "timeout" };
+          }
+          const accepted = await step.run(`record-approval${suffix}`, async () => {
+            if (!await isCurrentPublishApproval(projectId, approval.data.uploadId, dbStore)) {
+              await logEvent(projectId, "upload.publish.stale", { uploadId: approval.data.uploadId }).catch(() => {});
+              return false;
+            }
+            await approveGate(projectId, gate, "user", approval.data as Record<string, unknown>, dbStore);
+            return true;
+          });
+          if (accepted) break;
+        }
       } else {
         await step.run("mark-waiting", () => markGateWaiting(projectId, gate, dbStore, runId));
         const approval = await step.waitForEvent("wait-for-approval", {
@@ -167,6 +193,100 @@ export const onAssetReplace = inngest.createFunction(
         mapError(err);
       }
     });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Destination change while waiting to publish
+// ---------------------------------------------------------------------------
+
+export const onUploadRetarget = inngest.createFunction(
+  {
+    id: "upload-retarget",
+    name: "Upload to a new destination",
+    triggers: [events.uploadRetarget],
+    cancelOn: cancelOnReject,
+    retries: 3,
+    concurrency: { limit: 1, key: "event.data.projectId" },
+    idempotency: "event.data.requestId",
+  },
+  async ({ event, step }) => {
+    const { projectId, channelId } = event.data;
+    return step.run("upload-to-destination", async () => {
+      const project = await dbStore.getProject(projectId);
+      if (!project || project.status !== "waiting" || project.currentStage !== "approve-publish") return { skipped: "not waiting to publish" };
+      if (project.channelId !== channelId) return { skipped: "destination changed again" };
+      const gateRun = (await dbStore.getStage(projectId, "approve-publish"))?.runId;
+      try {
+        const result = await runStage(uploadStage, projectId, deps);
+        return { artifactId: result.artifactId, reused: result.skipped };
+      } catch (err) {
+        mapError(err);
+      } finally {
+        // The approve-publish gate never stopped waiting; put the project back in front of it.
+        await markGateWaiting(projectId, "approve-publish", dbStore, gateRun);
+      }
+    });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Scheduled releases: published only once a status read sees the video public
+// ---------------------------------------------------------------------------
+
+const RELEASE_CHECKS = 24;
+
+export const onScheduledRelease = inngest.createFunction(
+  {
+    id: "upload-confirm-release",
+    name: "Confirm scheduled release",
+    triggers: [{ event: events.stageCompleted, if: `event.data.stage == "publish"` }],
+    cancelOn: cancelOnReject,
+    retries: 3,
+  },
+  async ({ event, step }) => {
+    const { projectId, artifactId } = event.data;
+    if (!artifactId) return { outcome: "no upload" };
+    const up = await step.run("read-upload", async () => {
+      const u = await dbStore.getUpload(artifactId);
+      return u ? { status: u.status, publishAt: u.publishAt ?? null } : null;
+    });
+    if (up?.status !== "scheduled" || !up.publishAt) return { outcome: up?.status ?? "missing" };
+    await step.sleepUntil("wait-for-publish-at", up.publishAt);
+    for (let i = 0; i < RELEASE_CHECKS; i++) {
+      const status = await step.run(`confirm-${i}`, async () => {
+        try {
+          return await confirmRelease(projectId, artifactId, deps);
+        } catch (err) {
+          mapError(err);
+        }
+      });
+      if (status !== "scheduled") return { outcome: status };
+      await step.sleep(`recheck-${i}`, "15m");
+    }
+    await step.run("unconfirmed", () => logEvent(projectId, "upload.release.unconfirmed", { uploadId: artifactId }));
+    return { outcome: "unconfirmed" };
+  },
+);
+
+export const onUploadCheck = inngest.createFunction(
+  {
+    id: "upload-check",
+    name: "Check upload status",
+    triggers: [events.uploadCheck],
+    retries: 2,
+    concurrency: { limit: 1, key: "event.data.projectId" },
+  },
+  async ({ event, step }) => {
+    const { projectId, uploadId } = event.data;
+    const status = await step.run("confirm", async () => {
+      try {
+        return await confirmRelease(projectId, uploadId, deps);
+      } catch (err) {
+        mapError(err);
+      }
+    });
+    return { status };
   },
 );
 
@@ -232,6 +352,9 @@ export const functions = [
   ...STAGES.map((name) => (isGate(name) ? gateFunction(name) : stageFunction(workByName.get(name)!))),
   onProjectRejected,
   onAssetReplace,
+  onUploadRetarget,
+  onScheduledRelease,
+  onUploadCheck,
   onIdeasDiscover,
 ];
 

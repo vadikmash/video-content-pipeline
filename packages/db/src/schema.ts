@@ -46,6 +46,30 @@ export const ideas = pgTable(
   (t) => [index("ideas_status_idx").on(t.status), index("ideas_domain_idx").on(t.domain)],
 );
 
+// ---------------------------------------------------------------------------
+// Publishing destinations
+// ---------------------------------------------------------------------------
+
+/** One connected channel. `channel_id` is the provider's immutable ID and never changes. */
+export const channels = pgTable("channels", {
+  channelId: text("channel_id").primaryKey(),
+  provider: text("provider").notNull(),
+  label: text("label").notNull(),
+  /** Env var holding the refresh token; the secret itself is never stored here. */
+  credentialRef: text("credential_ref").notNull(),
+  createdAt: createdAt(),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
+/** Suggested destination per language. Only a suggestion: projects store their own channel. */
+export const channelLanguageDefaults = pgTable("channel_language_defaults", {
+  language: text("language").primaryKey(),
+  channelId: text("channel_id")
+    .notNull()
+    .references(() => channels.channelId),
+  updatedAt: ts("updated_at").notNull().defaultNow(),
+});
+
 export const projects = pgTable("projects", {
   id: text("id").primaryKey(),
   ideaId: text("idea_id")
@@ -56,6 +80,7 @@ export const projects = pgTable("projects", {
   rejectReason: text("reject_reason"),
   dryRun: boolean("dry_run").notNull().default(false),
   runId: text("run_id"),
+  channelId: text("channel_id").references(() => channels.channelId),
   createdAt: createdAt(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
 });
@@ -195,7 +220,9 @@ export const renders = pgTable("renders", {
   createdAt: createdAt(),
 });
 
-export const uploads = pgTable("uploads", {
+export const uploads = pgTable(
+  "uploads",
+  {
   id: text("id").primaryKey(),
   projectId: text("project_id")
     .notNull()
@@ -208,12 +235,17 @@ export const uploads = pgTable("uploads", {
   remoteUrl: text("remote_url"),
   privacy: text("privacy").notNull(),
   containsSyntheticMedia: boolean("contains_synthetic_media").notNull().default(false),
+  /** Null for uploads made before channel profiles existed. */
+  channelId: text("channel_id"),
   publishAt: ts("publish_at"),
+  publishTimeZone: text("publish_time_zone"),
   status: text("status").notNull(),
   meta: jsonb("meta").$type<UploadMeta>().notNull(),
   createdAt: createdAt(),
   updatedAt: ts("updated_at").notNull().defaultNow(),
-});
+  },
+  (t) => [index("uploads_project_render_channel_idx").on(t.projectId, t.renderId, t.channelId)],
+);
 
 // ---------------------------------------------------------------------------
 // Configuration, quota, audit

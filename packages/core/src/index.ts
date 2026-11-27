@@ -8,3 +8,4 @@ export * from "./events";
 export * from "./hash";
 export * from "./registry";
 export * from "./ids";
+export * from "./time";

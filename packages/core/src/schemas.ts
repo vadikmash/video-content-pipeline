@@ -286,13 +286,46 @@ export const Upload = z.object({
   remoteUrl: z.string().url().optional(),
   privacy: Privacy,
   containsSyntheticMedia: z.boolean(),
+  /** Destination channel (provider channel ID). Absent on uploads made before channel profiles. */
+  channelId: z.string().min(1).optional(),
+  /** Scheduled release as a UTC instant; `publishTimeZone` is the zone the reviewer picked it in. */
   publishAt: IsoDate.optional(),
+  publishTimeZone: z.string().min(1).optional(),
   status: z.enum(["uploaded", "scheduled", "published", "failed"]),
   meta: UploadMeta,
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });
 export type Upload = z.infer<typeof Upload>;
+
+// ---------------------------------------------------------------------------
+// Channel profiles (publishing destinations)
+// ---------------------------------------------------------------------------
+
+/** Production languages with routing defaults. */
+export const Language = z.enum(["en", "ru"]);
+export type Language = z.infer<typeof Language>;
+export const LANGUAGES = Language.options;
+
+/**
+ * Names the env var holding a channel's OAuth refresh token. Secrets never live in the
+ * database; a profile only points at one. Restricted to the YOUTUBE_REFRESH_TOKEN family so a
+ * stored reference can never make the adapter send an unrelated secret to Google.
+ */
+export const CredentialRef = z.string().regex(/^YOUTUBE_REFRESH_TOKEN(_[A-Z0-9]+)*$/, "credentialRef must name a YOUTUBE_REFRESH_TOKEN* env var");
+
+export const ChannelProfile = z.object({
+  /** Immutable provider channel ID (YouTube `UC…`). */
+  channelId: z.string().min(1),
+  provider: z.string().min(1),
+  label: z.string().min(1),
+  credentialRef: CredentialRef,
+  /** Languages that suggest this channel by default. */
+  defaultFor: z.array(Language).default([]),
+  createdAt: IsoDate,
+  updatedAt: IsoDate,
+});
+export type ChannelProfile = z.infer<typeof ChannelProfile>;
 
 // ---------------------------------------------------------------------------
 // Project and Stage (pipeline bookkeeping)
@@ -309,6 +342,8 @@ export const Project = z.object({
   rejectReason: z.string().optional(),
   dryRun: z.boolean().default(false),
   runId: z.string().optional(),
+  /** Saved destination (provider channel ID). Never derived from routing defaults at read time. */
+  channelId: z.string().min(1).optional(),
   createdAt: IsoDate,
   updatedAt: IsoDate,
 });

@@ -1,5 +1,6 @@
 import type {
   Asset,
+  ChannelProfile,
   Brief,
   Idea,
   IdeaStatus,
@@ -76,6 +77,10 @@ export interface Store {
   updateUpload(u: Upload): Promise<Upload>;
   getUpload(id: string): Promise<Upload | undefined>;
   latestUpload(projectId: string): Promise<Upload | undefined>;
+  /** The upload of `renderId` to `channelId` (undefined: uploads made without a channel). */
+  findUpload(projectId: string, renderId: string, channelId: string | undefined): Promise<Upload | undefined>;
+
+  getChannel(channelId: string): Promise<ChannelProfile | undefined>;
 
   logEvent(projectId: string | null, type: string, payload?: Record<string, unknown>): Promise<void>;
 }
