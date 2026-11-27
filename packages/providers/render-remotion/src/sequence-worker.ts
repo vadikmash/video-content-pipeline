@@ -5,7 +5,7 @@
  * tmpfs for scratch and output, dropped capabilities and CPU/memory/PID limits.
  * Inputs go in on stdin; framed outputs come back on stdout with a byte cap.
  */
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { EXIT, WORKER_IMAGE, type Diagnostic, type WorkerJob } from "@vcp/animation-worker/job";
 import { FrameDecoder, type DecodedFile } from "@vcp/animation-worker/protocol";
@@ -101,8 +101,16 @@ export function createDockerSequenceWorker(options: { image?: string; docker?: s
   const fromEnv = Number(process.env.ANIMATION_WORKER_TIMEOUT_MS);
   const limits = { ...DEFAULT_LIMITS, ...(fromEnv > 0 ? { timeoutMs: fromEnv } : {}), ...options.limits };
 
-  function imageId(): string {
-    const inspect = spawnSync(docker, ["image", "inspect", "--format", "{{.Id}}", image], { encoding: "utf8", env: dockerEnv() });
+  async function imageId(): Promise<string> {
+    const inspect = await new Promise<{ status: number | null; stdout: string; stderr: string; error?: Error }>((resolve) => {
+      const child = spawn(docker, ["image", "inspect", "--format", "{{.Id}}", image], { env: dockerEnv() });
+      let stdout = "";
+      let stderr = "";
+      child.stdout.setEncoding("utf8").on("data", (text: string) => (stdout += text));
+      child.stderr.setEncoding("utf8").on("data", (text: string) => (stderr += text));
+      child.on("error", (error) => resolve({ status: null, stdout, stderr, error }));
+      child.on("close", (status) => resolve({ status, stdout, stderr }));
+    });
     if (inspect.error) throw new SequenceWorkerError("unavailable", `Docker is not available (${inspect.error.message}). Start Docker to render authored animation.`);
     if (inspect.status !== 0) {
       const daemon = /daemon|connect/i.test(inspect.stderr);
@@ -117,7 +125,7 @@ export function createDockerSequenceWorker(options: { image?: string; docker?: s
     image,
     async run(job, runOptions = {}) {
       const started = Date.now();
-      const id = imageId();
+      const id = await imageId();
       const name = `vcp-seq-${randomUUID()}`;
       const child = spawn(docker, dockerRunArgs(name, image, limits), { stdio: ["pipe", "pipe", "pipe"], env: dockerEnv() });
       const decoder = new FrameDecoder({
