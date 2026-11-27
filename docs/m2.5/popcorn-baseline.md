@@ -55,3 +55,9 @@ Left to right, top row: 384 (b3 open), 405 `heats`, 459 `vapor`, 476 (last b3), 
 7. **Material identities drift.** The water reads as blue ovals in b3, as hollow squiggles at the `vapor` cue and as larger blobs again in b4. The heat source under the kernel is identical squiggles throughout, so heating does not visibly increase.
 
 Captions sit at 0.68 of the height and never collide with the kernel, so caption clearance is not a baseline defect.
+
+## Fixture through the full assembly
+
+![Fixture in FactShort](fixture-factshort-sheet.jpg)
+
+The trusted fixture's full-profile intermediate was played through `FactShort` with the original narration and captions (`scripts/sequence-factshort.ts`). The output is H.264 1080×1920 at 30 fps with 1173 frames (39.1 s, the baseline length) and AAC audio. Frames left to right: 383 (Backdrop, `b2`), 384 (sequence start), 405 `heats`, 476/477 and 573/574 (beat joins, no reset), 606, 607 `ruptures`, 624, 662 `expands`, 715 (last sequence frame), 716 (Backdrop, `b6`). This shows the toolkit and worker, not the product pilot.
