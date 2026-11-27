@@ -165,7 +165,7 @@ async function sequenceProp(
 
 export function createRemotionRenderer(
   blob: BlobStore,
-  options: { concurrency?: number; sequenceWorker?: SequenceWorker } = {},
+  options: { concurrency?: number; sequenceWorker?: SequenceWorker; /** Remotion delayRender timeout; default 30s. */ timeoutMs?: number } = {},
 ): Renderer {
   return {
     id: manifest.id,
@@ -199,7 +199,7 @@ export function createRemotionRenderer(
           })
           : new Map();
         const inputProps = await toFactShortProps(input, urlFor, musicUrl, sequences);
-        const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps, browserExecutable });
+        const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps, browserExecutable, timeoutInMilliseconds: options.timeoutMs });
 
         const outVideo = path.join(tmp, "out.mp4");
         await renderMedia({
@@ -211,6 +211,7 @@ export function createRemotionRenderer(
           concurrency: options.concurrency ?? 2,
           chromiumOptions: { gl: "angle" },
           browserExecutable,
+          timeoutInMilliseconds: options.timeoutMs,
         });
 
         const outStill = path.join(tmp, "thumb.jpeg");
@@ -222,6 +223,7 @@ export function createRemotionRenderer(
           frame: Math.min(composition.durationInFrames - 1, Math.round(composition.fps * 1.5)),
           imageFormat: "jpeg",
           browserExecutable,
+          timeoutInMilliseconds: options.timeoutMs,
         });
 
         const id = newId();

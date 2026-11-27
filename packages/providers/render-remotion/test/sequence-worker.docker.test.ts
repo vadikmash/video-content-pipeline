@@ -8,8 +8,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -102,37 +100,48 @@ describe.skipIf(!enabled)("sequence worker container", () => {
   }, 10 * MINUTES);
 
   it("cannot reach the network even when a URL slips past preflight", async () => {
-    const hits: string[] = [];
-    const server = createServer((req, res) => { hits.push(req.url ?? ""); res.end("canary"); });
-    await new Promise<void>((resolve) => server.listen(0, "0.0.0.0", resolve));
-    const port = (server.address() as AddressInfo).port;
+    // The daemon may run in a VM, so the canary lives in a container on its own network.
+    const docker = (args: string[]) => spawnSync("docker", args, { encoding: "utf8", timeout: 15 * MINUTES });
+    const net = `vcp-canary-${Date.now()}`;
+    const canary = `${net}-server`;
     try {
-      // Positive control: an ordinary container on the default network reaches the canary.
-      const control = spawnSync("docker", ["run", "--rm", "--add-host", "host.docker.internal:host-gateway", "--entrypoint", "node", worker.image, "-e",
-        `fetch("http://host.docker.internal:${port}/control").then(r => r.text()).then(t => console.log(t))`], { encoding: "utf8", timeout: 5 * MINUTES });
-      expect(control.stdout.trim()).toBe("canary");
-      expect(hits).toEqual(["/control"]);
+      expect(docker(["network", "create", net]).status).toBe(0);
+      const started = docker(["run", "-d", "--name", canary, "--network", net, "--entrypoint", "node", worker.image, "-e",
+        "require('http').createServer((q, r) => { console.log('HIT ' + q.url); r.end('canary'); }).listen(8080)"]);
+      expect(started.status, started.stderr).toBe(0);
+      const ip = docker(["inspect", "-f", `{{(index .NetworkSettings.Networks "${net}").IPAddress}}`, canary]).stdout.trim();
+      expect(ip).toMatch(/^\d+\.\d+\.\d+\.\d+$/);
+
+      // Positive control: a container with networking reaches the canary.
+      const control = docker(["run", "--rm", "--network", net, "--entrypoint", "node", worker.image, "-e",
+        `fetch("http://${ip}:8080/control").then(r => r.text()).then(t => console.log(t))`]);
+      expect(control.stdout.trim(), control.stderr).toBe("canary");
 
       // Split literals keep each piece innocent; the assembled CSS url() points at the canary.
       const smuggled = source
-        .replace("return (\n    <Canvas background", `return (\n    <>\n    <div style={{ position: "absolute", width: 10, height: 10, backgroundImage: "u" + "rl(ht" + "tp:/" + "/host.docker.internal:${port}/leak)" }} />\n    <Canvas background`)
+        .replace("return (\n    <Canvas background", `return (\n    <>\n    <div style={{ position: "absolute", width: 10, height: 10, backgroundImage: "u" + "rl(ht" + "tp:/" + "/${ip}:8080/leak)" }} />\n    <Canvas background`)
         .replace("    </Canvas>\n  );", "    </Canvas>\n    </>\n  );");
       expect(smuggled).toContain("/leak)");
-      expect(smuggled).toContain("</>");
       const result = await worker.run({ ...fixtureJob(smuggled, "draft"), mode: "stills", frames: [0, 223] });
       expect(result.files).toHaveLength(2);
-      expect(hits).toEqual(["/control"]);
+
+      const hits = docker(["logs", canary]).stdout.split("\n").filter((line) => line.startsWith("HIT "));
+      expect(hits).toEqual(["HIT /control"]);
     } finally {
-      server.close();
+      docker(["rm", "-f", canary]);
+      docker(["network", "rm", net]);
     }
-  }, 60 * MINUTES);
+  }, 120 * MINUTES);
 
   it("kills a job that runs past its time limit and leaves no container behind", async () => {
     const spinning = source.replace("const { frame, fps, seed, style } = props;", "const { frame, fps, seed, style } = props;\n  for (let i = 0; i >= 0; i = i * 1) { if (frame < 0) break; }");
+    const started = Date.now();
     const error = await worker.run(fixtureJob(spinning, "draft"), { timeoutMs: 4 * MINUTES }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(SequenceWorkerError);
     expect((error as SequenceWorkerError).kind).toBe("timeout");
+    // Killed at the limit, not when the job would have finished (cleanup is bounded separately).
+    expect(Date.now() - started).toBeLessThan(4 * MINUTES + 3 * MINUTES);
     const left = execFileSync("docker", ["ps", "-q", "--filter", "label=vcp.role=sequence-worker"], { encoding: "utf8" }).trim();
     expect(left).toBe("");
-  }, 10 * MINUTES);
+  }, 30 * MINUTES);
 });

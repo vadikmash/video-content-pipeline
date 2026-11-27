@@ -38,6 +38,6 @@ const input = {
 } as unknown as RenderInput;
 
 const started = Date.now();
-const renderer = createRemotionRenderer(blob, { concurrency: 2, sequenceWorker: createDockerSequenceWorker() });
+const renderer = createRemotionRenderer(blob, { concurrency: 2, sequenceWorker: createDockerSequenceWorker(), timeoutMs: 10 * 60_000 });
 const render = await renderer.render(input);
 console.log(JSON.stringify({ video: path.join(blob.dir, render.blob.key), durationSec: render.durationSec, templateVersion: render.templateVersion, elapsedMs: Date.now() - started }, null, 2));

@@ -128,10 +128,13 @@ export function createDockerSequenceWorker(options: { image?: string; docker?: s
       const diagnostics: Diagnostic[] = [];
       let stderrTail = "";
       let failure: SequenceWorkerError | undefined;
+      let settle: ((code: number | null) => void) | undefined;
+      // Never block the event loop on the docker CLI: it can take minutes on a loaded machine.
       const kill = (error: SequenceWorkerError) => {
         failure ??= error;
-        spawnSync(docker, ["kill", name], { env: dockerEnv(), stdio: "ignore" });
+        spawn(docker, ["kill", name], { env: dockerEnv(), stdio: "ignore" }).on("error", () => undefined);
         child.kill("SIGKILL");
+        settle?.(null);
       };
       const timeoutMs = runOptions.timeoutMs ?? limits.timeoutMs;
       const timer = setTimeout(() => kill(new SequenceWorkerError("timeout", `The sequence worker exceeded ${Math.round(timeoutMs / 1000)}s and was stopped`)), timeoutMs);
@@ -162,6 +165,7 @@ export function createDockerSequenceWorker(options: { image?: string; docker?: s
       child.stdin.end(JSON.stringify(job));
 
       const code = await new Promise<number | null>((resolve) => {
+        settle = resolve;
         child.on("error", (error) => {
           failure ??= new SequenceWorkerError("unavailable", `Could not start the sequence worker: ${error.message}`);
           resolve(null);
@@ -171,7 +175,10 @@ export function createDockerSequenceWorker(options: { image?: string; docker?: s
       clearTimeout(timer);
       runOptions.signal?.removeEventListener("abort", onAbort);
 
-      if (failure) throw failure;
+      if (failure) {
+        if (failure.kind === "timeout" || failure.kind === "canceled" || failure.kind === "limits") await removeContainer(docker, name);
+        throw failure;
+      }
       if (code === 137) throw new SequenceWorkerError("limits", `The sequence worker was killed (out of memory or a resource limit; memory ${limits.memory})`, diagnostics);
       if (code !== 0) {
         const kind = (code !== null && KINDS[code]) || "render";
@@ -184,6 +191,16 @@ export function createDockerSequenceWorker(options: { image?: string; docker?: s
       return { files: decoder.files, diagnostics, image, imageId: id, elapsedMs: Date.now() - started };
     },
   };
+}
+
+/** Force-remove a stopped or stopping job container; bounded so cleanup cannot hang a stage. */
+function removeContainer(docker: string, name: string): Promise<void> {
+  return new Promise((resolve) => {
+    const rm = spawn(docker, ["rm", "-f", name], { env: dockerEnv(), stdio: "ignore" });
+    const timer = setTimeout(() => { rm.kill("SIGKILL"); resolve(); }, 120_000);
+    rm.on("error", () => { clearTimeout(timer); resolve(); });
+    rm.on("close", () => { clearTimeout(timer); resolve(); });
+  });
 }
 
 /** Only what the docker CLI needs to reach the daemon; never API keys or database URLs. */
