@@ -28,7 +28,7 @@ export async function resolveAsset(
   const seconds = Math.max(1, scene.end - scene.start);
   const imageOptions = { width: 1080, height: 1920, requestId };
 
-  if (v.kind === "type" || v.kind === "diagram" || v.kind === "animation") return undefined;
+  if (v.kind === "type" || v.kind === "diagram" || v.kind === "animation" || v.kind === "animationSequence") return undefined;
 
   if (v.kind === "stock") {
     const hits = await ports.StockSearch.search(v.query, { orientation: v.orientation, minDurationSec: seconds, perPage: 3 });
