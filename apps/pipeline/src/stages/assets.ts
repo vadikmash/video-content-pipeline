@@ -66,7 +66,7 @@ export const assets = defineStage({
     const { ports, store, project } = ctx;
     const board = await store.latestStoryboard(project.id);
     if (!board || board.id !== input.storyboardId) throw new StageError("assets: storyboard changed under us", false);
-    if (input.visualMode === "animated" && board.scenes.some(scene => scene.visual.kind !== "animation")) {
+    if (input.visualMode === "animated" && board.scenes.some(scene => scene.visual.kind !== "animation" && scene.visual.kind !== "animationSequence")) {
       throw new StageError("Fully animated projects need an animation for every scene", false);
     }
 

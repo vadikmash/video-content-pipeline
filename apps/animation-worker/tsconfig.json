@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "paths": {
+      "@vcp/motion": ["../renderer/src/motion/index.tsx"],
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "wrapper/**/*.tsx", "../../fixtures/animation/*.tsx", "vitest.config.ts"]
+}

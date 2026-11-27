@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./props": "./src/props.ts",
-    "./entry": "./src/index.ts"
+    "./entry": "./src/index.ts",
+    "./motion": "./src/motion/index.tsx"
   },
   "scripts": {
     "studio": "remotion studio src/index.ts",

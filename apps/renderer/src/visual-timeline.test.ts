@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { SceneProp } from "./props";
 import { visualTimeline, visualSequences } from "./visual-timeline";
 
@@ -22,4 +22,21 @@ it("starts the first available visual at the beginning and preserves its clock a
   const intervals=visualTimeline([hook,image],30,150);
   expect(intervals[0]?.scene).toBe(image);
   expect(visualSequences(intervals)).toHaveLength(1);
+});
+
+describe("authored sequences", () => {
+  const seq = { id: "popcorn", url: "http://x/visual.mov", startFrame: 384, endFrame: 716 };
+  const scene = (beatId: string, start: number, end: number, sequence?: typeof seq) =>
+    ({ beatId, start, end, text: "", kind: sequence ? "animationSequence" as const : "type" as const, sequence });
+  it("collapses adjacent beats of one sequence into one media clock and keeps beat intervals", () => {
+    const scenes = [scene("b2", 8.973, 12.566), scene("b3", 12.804, 15.649, seq), scene("b4", 15.916, 18.962, seq), scene("b5", 19.137, 23.681, seq), scene("b6", 23.866, 28.1)];
+    const timeline = visualTimeline(scenes, 30, 900);
+    expect(timeline.filter((i) => i.scene.sequence).map((i) => [i.beatId, i.start, i.end])).toEqual([["b3", 384, 477], ["b4", 477, 574], ["b5", 574, 716]]);
+    const merged = visualSequences(timeline).filter((s) => s.scene.sequence);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ start: 384, end: 716 });
+    // Beats outside the sequence never carry its time-locked clip.
+    expect(timeline.find((i) => i.beatId === "b2")!.scene.sequence).toBeUndefined();
+    expect(timeline.find((i) => i.beatId === "b6")!.scene.sequence).toBeUndefined();
+  });
 });

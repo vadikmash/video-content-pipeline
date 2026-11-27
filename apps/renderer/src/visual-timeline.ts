@@ -2,9 +2,11 @@ import type { SceneProp } from "./props";
 
 export function visualTimeline(scenes: SceneProp[], fps: number, duration: number) {
   const sorted = [...scenes].sort((a, b) => a.start - b.start);
-  const hasVisual = (scene: SceneProp) => scene.animation || scene.diagram || scene.asset?.kind === "image" || scene.asset?.kind === "video";
+  const hasVisual = (scene: SceneProp) => scene.sequence || scene.animation || scene.diagram || scene.asset?.kind === "image" || scene.asset?.kind === "video";
+  // An authored sequence is locked to its own frames, so it is never carried into other beats.
+  const carriable = (scene: SceneProp) => hasVisual(scene) && !scene.sequence;
   const still = sorted.find((scene) => scene.asset?.kind === "image");
-  const firstVisual = sorted.find(hasVisual);
+  const firstVisual = sorted.find(carriable);
   let previousVisual: SceneProp | undefined;
   const intervals = sorted.flatMap((scene, index) => {
     // The visual remains on screen through pauses and to the end of the Short.
@@ -13,7 +15,7 @@ export function visualTimeline(scenes: SceneProp[], fps: number, duration: numbe
     const end = next ? Math.min(duration, Math.round(next.start * fps)) : duration;
     if (end <= start) return [];
     const visual = hasVisual(scene) ? scene : (scene.beatId === "outro" ? still : undefined) ?? previousVisual ?? firstVisual ?? scene;
-    if (hasVisual(scene)) previousVisual = scene;
+    if (carriable(scene)) previousVisual = scene;
     return [{ scene: visual, start, end, beatId: scene.beatId, captionPosition: scene.captionPosition ?? visual.captionPosition }];
   });
   return intervals.length ? intervals : [{
@@ -23,12 +25,13 @@ export function visualTimeline(scenes: SceneProp[], fps: number, duration: numbe
 }
 
 
-/** Adjacent beats using the same carried scene share one media clock. */
+/** Adjacent beats using the same carried scene or authored sequence share one media clock. */
 export function visualSequences(timeline: ReturnType<typeof visualTimeline>) {
   const sequences: ReturnType<typeof visualTimeline> = [];
   for (const interval of timeline) {
     const previous = sequences[sequences.length - 1];
-    if (previous && previous.scene === interval.scene && previous.end === interval.start) {
+    const sameSequence = previous?.scene.sequence && previous.scene.sequence.id === interval.scene.sequence?.id;
+    if (previous && (previous.scene === interval.scene || sameSequence) && previous.end === interval.start) {
       previous.end = interval.end;
     } else {
       sequences.push({ ...interval });

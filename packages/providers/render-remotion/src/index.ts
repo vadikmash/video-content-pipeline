@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import {
+  compositionDurationFrames,
+  compositionDurationSec,
   defineManifest,
   newId,
   ProcessDiagram,
@@ -20,6 +22,11 @@ import {
 import { FPS, HEIGHT, TEMPLATE_ID, TEMPLATE_VERSION, WIDTH, type FactShortProps } from "@vcp/renderer/props";
 import { captionPositionFor, type CaptionPosition } from "./caption-placement";
 import { startStaticServer } from "./static-server";
+import { resolveSequences } from "./sequences";
+import { createDockerSequenceWorker, type SequenceWorker } from "./sequence-worker";
+
+export { createDockerSequenceWorker, dockerRunArgs, SequenceWorkerError, DEFAULT_LIMITS, type SequenceWorker } from "./sequence-worker";
+export { resolveSequences, verifyIntermediate, intermediateKey, workerJob } from "./sequences";
 
 export const manifest = defineManifest({
   id: "render-remotion",
@@ -91,6 +98,7 @@ export async function toFactShortProps(
   input: RenderInput,
   urlFor: (ref: BlobRef) => Promise<string>,
   musicUrl?: string,
+  sequences: ReadonlyMap<string, { intermediate: BlobRef; startFrame: number; endFrame: number }> = new Map(),
 ): Promise<FactShortProps> {
   const placements = new Map<string, Promise<CaptionPosition>>();
   const scenes = await Promise.all(
@@ -120,6 +128,9 @@ export async function toFactShortProps(
         text: input.beats[scene.beatId] ?? "",
         kind: scene.visual.kind,
         animation: scene.visual.kind === "animation" ? scene.visual.plan : undefined,
+        sequence: scene.visual.kind === "animationSequence"
+          ? await sequenceProp(scene.visual.sequenceId, sequences, urlFor)
+          : undefined,
         diagram: diagram?.success ? diagram.data : undefined,
         asset: asset
           ? { kind: asset.kind, url: assetUrl!, attribution: asset.attribution.text || undefined, durationSec: asset.durationSec }
@@ -127,11 +138,10 @@ export async function toFactShortProps(
       };
     }),
   );
-  // Leave a short hold for the audio tail beyond the last timed word.
-  const lastEnd = Math.max(input.narration.durationSec, ...scenes.map((s) => s.end));
   return {
     title: input.title,
-    durationSec: Math.max(1, Math.ceil((lastEnd + 0.25) * 10) / 10),
+    // Leave a short hold for the audio tail beyond the last timed word.
+    durationSec: compositionDurationSec(input.narration.durationSec, scenes.map((s) => s.end)),
     audioUrl: await urlFor(input.narration.audioBlob),
     words: input.narration.words,
     scenes,
@@ -139,11 +149,24 @@ export async function toFactShortProps(
   };
 }
 
+async function sequenceProp(
+  sequenceId: string,
+  sequences: ReadonlyMap<string, { intermediate: BlobRef; startFrame: number; endFrame: number }>,
+  urlFor: (ref: BlobRef) => Promise<string>,
+) {
+  const resolved = sequences.get(sequenceId);
+  if (!resolved) throw new Error(`Sequence ${sequenceId} was not resolved before rendering`);
+  return { id: sequenceId, url: await urlFor(resolved.intermediate), startFrame: resolved.startFrame, endFrame: resolved.endFrame };
+}
+
 // ---------------------------------------------------------------------------
 // Renderer
 // ---------------------------------------------------------------------------
 
-export function createRemotionRenderer(blob: BlobStore, options: { concurrency?: number } = {}): Renderer {
+export function createRemotionRenderer(
+  blob: BlobStore,
+  options: { concurrency?: number; sequenceWorker?: SequenceWorker } = {},
+): Renderer {
   return {
     id: manifest.id,
     async render(input) {
@@ -163,7 +186,19 @@ export function createRemotionRenderer(blob: BlobStore, options: { concurrency?:
         const musicUrl = bed
           ? await urlFor(await blob.put("templates/fact-short/bed.mp3", new Uint8Array(await readFile(bed)), "audio/mpeg"))
           : undefined;
-        const inputProps = await toFactShortProps(input, urlFor, musicUrl);
+        const durationSec = compositionDurationSec(input.narration.durationSec, input.storyboard.scenes.map((s) => s.end));
+        const sequences = input.storyboard.scenes.some((scene) => scene.visual.kind === "animationSequence")
+          ? await resolveSequences(input, blob, options.sequenceWorker ?? createDockerSequenceWorker(), {
+            fps: FPS,
+            durationFrames: compositionDurationFrames(durationSec, FPS),
+            profile: "full",
+            captionPositions: Object.fromEntries(input.storyboard.scenes.map((scene) => [
+              scene.beatId,
+              scene.captionPosition?.startsWith("top") ? "top" as const : "bottom" as const,
+            ])),
+          })
+          : new Map();
+        const inputProps = await toFactShortProps(input, urlFor, musicUrl, sequences);
         const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps, browserExecutable });
 
         const outVideo = path.join(tmp, "out.mp4");

@@ -1,5 +1,6 @@
 export * from "./schemas";
 export * from "./animation";
+export * from "./sequence";
 export * from "./errors";
 export * from "./llm";
 export * from "./ports";

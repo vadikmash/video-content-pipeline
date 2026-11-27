@@ -78,6 +78,7 @@ const Scene: React.FC<{ scene: SceneProp; startFrame: number }> = ({ scene, star
   const { durationInFrames, fps } = useVideoConfig();
   const asset = scene.asset;
 
+  if (scene.sequence) return <AuthoredSequence sequence={scene.sequence} startFrame={startFrame} />;
   if (scene.animation) return <VectorScene plan={scene.animation} sceneStart={startFrame / fps} />;
 
   if (asset?.kind === "video") {
@@ -105,6 +106,21 @@ const Scene: React.FC<{ scene: SceneProp; startFrame: number }> = ({ scene, star
 
   if (scene.diagram) return <ProcessVisual diagram={scene.diagram} />;
   return <Backdrop />;
+};
+
+/**
+ * Plays a verified, visual-only intermediate rendered from an authored sequence.
+ * Its frame 0 is the manifest's global start frame, so local frames map 1:1.
+ */
+const AuthoredSequence: React.FC<{ sequence: NonNullable<SceneProp["sequence"]>; startFrame: number }> = ({ sequence, startFrame }) => {
+  const frame = useCurrentFrame();
+  const offset = Math.max(0, startFrame - sequence.startFrame);
+  const lastFrame = sequence.endFrame - sequence.startFrame - 1;
+  const video = (
+    <OffthreadVideo src={sequence.url} muted trimBefore={offset || undefined} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+  );
+  // Hold the last authored frame if the timeline ever runs past the intermediate.
+  return frame + offset > lastFrame ? <Freeze frame={Math.max(0, lastFrame - offset)}>{video}</Freeze> : video;
 };
 
 /** Animated editorial texture when the storyboard has no usable media. */

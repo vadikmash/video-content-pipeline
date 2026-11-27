@@ -1,0 +1,16 @@
+{
+  "name": "vcp-animation-worker-image",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@remotion/bundler": "4.0.540",
+    "@remotion/renderer": "4.0.540",
+    "@types/react": "19.3.0",
+    "esbuild": "0.28.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.540",
+    "typescript": "5.9.3",
+    "zod": "4.6.7"
+  }
+}

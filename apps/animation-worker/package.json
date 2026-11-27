@@ -1,0 +1,30 @@
+{
+  "name": "@vcp/animation-worker",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./preflight": "./src/preflight.ts",
+    "./protocol": "./src/protocol.ts",
+    "./job": "./src/job.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "image:build": "sh ./build-image.sh"
+  },
+  "dependencies": {
+    "typescript": "5.9.3",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.540",
+    "@remotion/renderer": "4.0.540",
+    "@types/react": "^19.3.0",
+    "@vcp/core": "workspace:*",
+    "@vcp/renderer": "workspace:*",
+    "react": "^19.3.1",
+    "remotion": "4.0.540",
+    "vitest": "^5.1.0"
+  }
+}
