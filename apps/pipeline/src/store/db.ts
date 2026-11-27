@@ -40,6 +40,9 @@ export const dbStore: Store = {
   updateUpload: db.updateUpload,
   getUpload: db.getUpload,
   latestUpload: db.latestUpload,
+  findUpload: db.findUpload,
+
+  getChannel: db.getChannel,
 
   logEvent: db.logEvent,
 };

@@ -79,3 +79,5 @@ if (!tokenRes.ok || !token.refresh_token) {
 
 console.log("\nAdd this to .env (it is not written for you):\n");
 console.log(`YOUTUBE_REFRESH_TOKEN=${token.refresh_token}`);
+console.log("\nFor another channel, use a YOUTUBE_REFRESH_TOKEN_<NAME> variable instead. Then save the channel profile:");
+console.log("  pnpm channels connect --credential <variable> --label <label>");

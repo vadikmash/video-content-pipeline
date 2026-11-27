@@ -9,20 +9,24 @@ import {
   type Privacy,
   type ProviderContext,
   type Publisher,
+  type PublishTarget,
   type Render,
   type Upload,
   type UploadMeta,
+  CredentialRef,
   ProviderError,
 } from "@vcp/core";
 
 export const manifest = defineManifest({
   id: "publish-youtube",
   port: "Publisher",
-  env: ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN"],
+  // Refresh tokens are per channel: each channel profile names its own YOUTUBE_REFRESH_TOKEN* var.
+  env: ["YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET"],
   limits: { perDay: 100 },
   attributionRequired: false,
   costModel: { unit: "request", approxUsd: 0 },
-  description: "YouTube Data API resumable videos.insert. Uploads are always private; setPrivacy publishes or schedules.",
+  description:
+    "YouTube Data API resumable videos.insert to a channel profile. Verifies the authenticated channel before every write. Uploads are always private; setPrivacy publishes or schedules.",
 });
 
 interface YouTubeStatus {
@@ -39,6 +43,7 @@ const READ_ONLY_STATUS = ["uploadStatus", "failureReason", "rejectionReason", "m
 interface YouTubeVideo {
   id?: string;
   status?: YouTubeStatus;
+  snippet?: { channelId?: string };
 }
 
 export interface VideoBody {
@@ -49,42 +54,40 @@ export interface VideoBody {
 export function create(ctx: ProviderContext): Publisher {
   const env = ctx.env;
   const categoryId = stringOpt(ctx.options.categoryId) ?? env.YOUTUBE_CATEGORY_ID ?? "27";
-  let cached: { value: string; expiresAt: number } | undefined;
+  const tokens = new Map<string, { value: string; expiresAt: number }>();
 
-  async function accessToken(): Promise<string> {
+  async function accessToken(target: PublishTarget): Promise<string> {
+    const cached = tokens.get(target.credentialRef);
     if (cached && cached.expiresAt > Date.now() + 30_000) return cached.value;
-    const clientId = requireEnv(env, "YOUTUBE_CLIENT_ID");
-    const clientSecret = requireEnv(env, "YOUTUBE_CLIENT_SECRET");
-    const refreshToken = requireEnv(env, "YOUTUBE_REFRESH_TOKEN");
-    const res = await fetch("https://oauth2.googleapis.com/token", {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
-      }),
-    });
-    const json = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
-    if (!res.ok || !json.access_token) {
-      throw new ProviderError(`publish-youtube: oauth ${res.status} ${json.error_description ?? "no access token"}`, res.status);
-    }
-    cached = { value: json.access_token, expiresAt: Date.now() + (json.expires_in ?? 3600) * 1000 };
-    return json.access_token;
+    const token = await refreshAccessToken(env, target.credentialRef);
+    tokens.set(target.credentialRef, token);
+    return token.value;
+  }
+
+  /**
+   * Token for `target`, after checking it authenticates as `target.channelId`. Runs before
+   * every remote write; a mismatch throws before anything is sent.
+   */
+  async function verifiedToken(target: PublishTarget | undefined, action: string): Promise<string> {
+    const t = requireTarget(target, action);
+    const token = await accessToken(t);
+    const actual = await authenticatedChannelId(token);
+    if (actual !== t.channelId) throw channelMismatch(t, actual);
+    return token;
   }
 
   return {
     id: manifest.id,
-    async upload(render, meta, privacy) {
+    async upload(render, meta, privacy, target) {
       if (privacy !== "private") {
         throw new Error("publish-youtube: upload privacy must be private; publishing is a separate call");
       }
-      const token = await accessToken();
+      const token = await verifiedToken(target, "upload");
+      const channelId = target!.channelId;
       const video = await openVideo(ctx.blob, render);
-      const remoteId = await uploadOnce(ctx.blob, render.id, video, {
+      const remoteId = await uploadOnce(ctx.blob, { channelId, renderId: render.id }, video, {
         start: () => startSession(token, video, meta, categoryId),
-        exists: (id) => videoExists(token, id),
+        exists: (id) => videoOnChannel(token, id, channelId),
       });
       const now = nowIso();
       const upload: Upload = {
@@ -94,6 +97,7 @@ export function create(ctx: ProviderContext): Publisher {
         provider: manifest.id,
         remoteId,
         remoteUrl: watchUrl(remoteId),
+        channelId,
         privacy: "private",
         containsSyntheticMedia: meta.containsSyntheticMedia,
         status: "uploaded",
@@ -104,13 +108,23 @@ export function create(ctx: ProviderContext): Publisher {
       return upload;
     },
 
-    async setPrivacy(upload, privacy, publishAt) {
-      const token = await accessToken();
+    async setPrivacy(upload, privacy, publishAt, target) {
+      const token = await verifiedToken(target, "setPrivacy");
       const scheduled = Boolean(publishAt && new Date(publishAt).getTime() > Date.now());
       const wirePrivacy: Privacy = scheduled ? "private" : privacy;
       // videos.update replaces the whole status object: start from the current one so
       // embeddable, license, publicStatsViewable and the kids flag keep their values.
       const current = await getVideo(token, upload.remoteId);
+      // The credential is right; the video must also belong to that channel (legacy uploads
+      // have no recorded channel, and a record can be pointed at the wrong one).
+      if (current.snippet?.channelId !== target!.channelId) {
+        throw new ProviderError(
+          `publish-youtube: video ${upload.remoteId} belongs to channel ${current.snippet?.channelId ?? "unknown"}, not ${target!.channelId}. ` +
+            "Choose the channel the video was uploaded to.",
+          409,
+          false,
+        );
+      }
       const status = statusForUpdate(current.status ?? {}, {
         privacyStatus: wirePrivacy,
         containsSyntheticMedia: upload.containsSyntheticMedia,
@@ -120,51 +134,134 @@ export function create(ctx: ProviderContext): Publisher {
       await updateStatus(token, upload.remoteId, status);
       return {
         ...upload,
+        channelId: target!.channelId,
         privacy: wirePrivacy,
         publishAt: scheduled ? publishAt : undefined,
+        publishTimeZone: scheduled ? upload.publishTimeZone : undefined,
+        // A schedule is only a request: the video stays private until a status read sees it public.
         status: scheduled ? "scheduled" : privacy === "public" ? "published" : "uploaded",
         updatedAt: nowIso(),
       };
     },
 
-    async status(upload) {
-      const token = await accessToken();
+    async status(upload, target) {
+      const token = await accessToken(requireTarget(target, "status"));
       const video = await getVideo(token, upload.remoteId);
       const privacy = video.status?.privacyStatus ?? upload.privacy;
-      const publishAt = video.status?.publishAt ?? upload.publishAt;
-      const scheduled = Boolean(publishAt && new Date(publishAt).getTime() > Date.now());
+      const publishAt = video.status?.publishAt ?? (privacy === "public" ? undefined : upload.publishAt);
       return {
         ...upload,
         privacy,
         publishAt,
         containsSyntheticMedia: video.status?.containsSyntheticMedia ?? upload.containsSyntheticMedia,
-        status: scheduled ? "scheduled" : privacy === "public" ? "published" : "uploaded",
+        status: remoteStatus(privacy, publishAt),
         updatedAt: nowIso(),
       };
     },
   };
 }
 
+/** Published only when YouTube reports the video public; a pending publishAt keeps it scheduled. */
+export function remoteStatus(privacy: Privacy, publishAt: string | undefined): Upload["status"] {
+  if (privacy === "public") return "published";
+  return publishAt ? "scheduled" : "uploaded";
+}
+
+function requireTarget(target: PublishTarget | undefined, action: string): PublishTarget {
+  if (!target?.channelId || !target.credentialRef) {
+    throw new ProviderError(`publish-youtube: ${action} needs a destination channel. Choose one on the project.`, undefined, false);
+  }
+  return target;
+}
+
+function channelMismatch(target: PublishTarget, actual: string | undefined): ProviderError {
+  return new ProviderError(
+    `publish-youtube: ${target.credentialRef} authenticates as channel ${actual ?? "(none)"}, but the destination is ${target.channelId}. ` +
+      `Reconnect ${target.credentialRef} with the account that owns ${target.channelId}, or choose another channel. Nothing was sent.`,
+    409,
+    false,
+  );
+}
+
+/** Exchange the refresh token named by `credentialRef` for an access token. */
+export async function refreshAccessToken(
+  env: Record<string, string | undefined>,
+  credentialRef: string,
+): Promise<{ value: string; expiresAt: number }> {
+  const ref = CredentialRef.safeParse(credentialRef);
+  if (!ref.success) throw new ProviderError(`publish-youtube: invalid credential reference "${credentialRef}"`, undefined, false);
+  const clientId = requireEnv(env, "YOUTUBE_CLIENT_ID");
+  const clientSecret = requireEnv(env, "YOUTUBE_CLIENT_SECRET");
+  const refreshToken = requireEnv(env, ref.data);
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
+  if (!res.ok || !json.access_token) {
+    throw new ProviderError(`publish-youtube: oauth ${res.status} for ${ref.data}: ${json.error_description ?? "no access token"}`, res.status);
+  }
+  return { value: json.access_token, expiresAt: Date.now() + (json.expires_in ?? 3600) * 1000 };
+}
+
+/** The channel the token acts as (`channels.list mine=true`). A read; costs 1 quota unit. */
+export async function authenticatedChannelId(token: string): Promise<string | undefined> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/channels");
+  url.searchParams.set("part", "id");
+  url.searchParams.set("mine", "true");
+  const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+  if (!res.ok) throw youtubeError("channels.list", res.status, await snippet(res));
+  const json = (await res.json()) as { items?: { id?: string }[] };
+  return json.items?.[0]?.id;
+}
+
+/** Identity of a credential, for connecting a channel profile: the channel it authenticates as. */
+export async function channelForCredential(env: Record<string, string | undefined>, credentialRef: string): Promise<string> {
+  const token = await refreshAccessToken(env, credentialRef);
+  const id = await authenticatedChannelId(token.value);
+  if (!id) throw new ProviderError(`publish-youtube: ${credentialRef} has no YouTube channel`, undefined, false);
+  return id;
+}
+
 /**
- * Upload a render at most once. A small record per render in the blob store holds the
- * resumable session URL (saved before any bytes are sent) and, once done, the video id:
+ * Upload a render to a channel at most once. A small record per (channel, render) in the blob
+ * store holds the resumable session URL (saved before any bytes are sent) and, once done, the
+ * video id:
  *
- * - video id recorded and the video still exists: return it, nothing is sent again;
+ * - video id recorded and the video still exists on the channel: return it, nothing is sent again;
  * - session recorded: always probe it (probes cost no quota); if YouTube already has every
  *   byte it answers with the video, otherwise the upload resumes from the confirmed offset;
  * - session gone (404, 410 or any other permanent error) or none recorded: start a new
  *   session. A finished session answers a probe with the video, never an error, and YouTube
  *   creates the video only when the last byte arrives, so starting over leaves no duplicate.
+ *
+ * Records written before channel profiles were keyed by render alone. Their video id is
+ * reused only when `exists` confirms it is on this channel; their bare session URLs are not
+ * resumed, because the channel that opened them is unknown.
  */
 export async function uploadOnce(
   blob: BlobStore,
-  renderId: string,
+  key: UploadKey,
   video: VideoBody,
   remote: { start: () => Promise<string>; exists: (videoId: string) => Promise<boolean> },
   sleep = defaultSleep,
 ): Promise<string> {
-  const record = await readSession(blob, renderId);
+  const record = await readSession(blob, sessionKey(key));
   if (record?.videoId && (await remote.exists(record.videoId))) return record.videoId;
+
+  if (!record) {
+    const legacy = await readSession(blob, legacySessionKey(key.renderId));
+    if (legacy?.videoId && (await remote.exists(legacy.videoId))) {
+      await writeSession(blob, { ...key, size: legacy.size, videoId: legacy.videoId, createdAt: nowIso() });
+      return legacy.videoId;
+    }
+  }
 
   let done: YouTubeVideo | undefined;
   if (record?.location && !record.videoId && record.size === video.size) {
@@ -176,15 +273,22 @@ export async function uploadOnce(
   }
   if (!done) {
     const location = await remote.start();
-    await writeSession(blob, { renderId, location, size: video.size, createdAt: nowIso() });
+    await writeSession(blob, { ...key, location, size: video.size, createdAt: nowIso() });
     done = await putResumable(location, video, sleep);
   }
   if (!done.id) throw new ProviderError("publish-youtube: upload response had no video id", undefined, false);
-  await writeSession(blob, { renderId, size: video.size, videoId: done.id, createdAt: nowIso() });
+  await writeSession(blob, { ...key, size: video.size, videoId: done.id, createdAt: nowIso() });
   return done.id;
 }
 
+export interface UploadKey {
+  channelId: string;
+  renderId: string;
+}
+
 export interface SessionRecord {
+  /** Absent on records written before channel profiles. */
+  channelId?: string;
   renderId: string;
   size: number;
   location?: string;
@@ -192,13 +296,18 @@ export interface SessionRecord {
   createdAt: string;
 }
 
-export function sessionKey(renderId: string): string {
+export function sessionKey(key: UploadKey): string {
+  return `uploads/publish-youtube/${encodeURIComponent(key.channelId)}/${key.renderId}.json`;
+}
+
+/** Where uploads made before channel profiles kept their record. Read-only now. */
+export function legacySessionKey(renderId: string): string {
   return `uploads/publish-youtube/${renderId}.json`;
 }
 
-async function readSession(blob: BlobStore, renderId: string): Promise<SessionRecord | undefined> {
+async function readSession(blob: BlobStore, key: string): Promise<SessionRecord | undefined> {
   try {
-    const bytes = await blob.get({ key: sessionKey(renderId), contentType: "application/json" });
+    const bytes = await blob.get({ key, contentType: "application/json" });
     return JSON.parse(Buffer.from(bytes).toString("utf8")) as SessionRecord;
   } catch (err) {
     // Missing record means no earlier attempt. Any other read failure must not be
@@ -208,8 +317,8 @@ async function readSession(blob: BlobStore, renderId: string): Promise<SessionRe
   }
 }
 
-async function writeSession(blob: BlobStore, record: SessionRecord): Promise<void> {
-  await blob.put(sessionKey(record.renderId), new Uint8Array(Buffer.from(JSON.stringify(record))), "application/json");
+async function writeSession(blob: BlobStore, record: SessionRecord & UploadKey): Promise<void> {
+  await blob.put(sessionKey(record), new Uint8Array(Buffer.from(JSON.stringify(record))), "application/json");
 }
 
 function isNotFound(err: unknown): boolean {
@@ -217,10 +326,11 @@ function isNotFound(err: unknown): boolean {
   return e?.code === "ENOENT" || e?.name === "NoSuchKey" || e?.name === "NotFound" || e?.$metadata?.httpStatusCode === 404;
 }
 
-/** The video is on YouTube and usable: deleted, failed or rejected videos count as gone. */
-async function videoExists(token: string, id: string): Promise<boolean> {
+/** The video is on `channelId` and usable: deleted, failed or rejected videos count as gone. */
+async function videoOnChannel(token: string, id: string, channelId: string): Promise<boolean> {
   try {
     const video = await getVideo(token, id);
+    if (video.snippet?.channelId !== channelId) return false;
     return !["failed", "rejected", "deleted"].includes(String(video.status?.uploadStatus ?? ""));
   } catch (err) {
     if (err instanceof ProviderError && err.status === 404) return false;
@@ -356,7 +466,7 @@ async function updateStatus(token: string, id: string, status: YouTubeStatus): P
 
 async function getVideo(token: string, id: string): Promise<YouTubeVideo> {
   const url = new URL("https://www.googleapis.com/youtube/v3/videos");
-  url.searchParams.set("part", "status");
+  url.searchParams.set("part", "status,snippet");
   url.searchParams.set("id", id);
   const res = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
   if (!res.ok) throw youtubeError("status", res.status, await snippet(res));

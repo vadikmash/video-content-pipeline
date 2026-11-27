@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Asset, Brief, Narration, Render, Script, Storyboard, Upload } from "@vcp/core";
 import { getDb } from "../client";
 import { assets, briefs, narrations, renders, scripts, storyboards, uploads } from "../schema";
@@ -230,7 +230,9 @@ function toUpload(r: typeof uploads.$inferSelect): Upload {
   return Upload.parse({
     ...r,
     remoteUrl: r.remoteUrl ?? undefined,
+    channelId: r.channelId ?? undefined,
     publishAt: r.publishAt?.toISOString(),
+    publishTimeZone: r.publishTimeZone ?? undefined,
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   });
@@ -241,7 +243,9 @@ export async function insertUpload(u: Upload): Promise<Upload> {
     .insert(uploads)
     .values({
       ...u,
+      channelId: u.channelId ?? null,
       publishAt: u.publishAt ? new Date(u.publishAt) : null,
+      publishTimeZone: u.publishTimeZone ?? null,
       createdAt: new Date(u.createdAt),
       updatedAt: new Date(u.updatedAt),
     })
@@ -256,7 +260,10 @@ export async function updateUpload(u: Upload): Promise<Upload> {
       privacy: u.privacy,
       status: u.status,
       remoteUrl: u.remoteUrl,
+      // Set once, when a legacy upload is bound to the channel it was verified to belong to.
+      channelId: u.channelId ?? null,
       publishAt: u.publishAt ? new Date(u.publishAt) : null,
+      publishTimeZone: u.publishTimeZone ?? null,
       updatedAt: new Date(),
     })
     .where(eq(uploads.id, u.id))
@@ -277,4 +284,26 @@ export async function latestUpload(projectId: string): Promise<Upload | undefine
     .orderBy(desc(uploads.createdAt))
     .limit(1);
   return row ? toUpload(row) : undefined;
+}
+
+/** The upload of `renderId` to `channelId` (null: uploads made without a channel). Newest first. */
+export async function findUpload(projectId: string, renderId: string, channelId: string | undefined): Promise<Upload | undefined> {
+  const [row] = await getDb()
+    .select()
+    .from(uploads)
+    .where(
+      and(
+        eq(uploads.projectId, projectId),
+        eq(uploads.renderId, renderId),
+        channelId ? eq(uploads.channelId, channelId) : isNull(uploads.channelId),
+      ),
+    )
+    .orderBy(desc(uploads.createdAt))
+    .limit(1);
+  return row ? toUpload(row) : undefined;
+}
+
+export async function listUploads(projectId: string): Promise<Upload[]> {
+  const rows = await getDb().select().from(uploads).where(eq(uploads.projectId, projectId)).orderBy(desc(uploads.createdAt));
+  return rows.map(toUpload);
 }

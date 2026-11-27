@@ -1,4 +1,4 @@
-import { isGate, type Asset, type Brief, type Narration, type Render, type Scene, type Script, type StageName, type Storyboard, type Upload } from "@vcp/core";
+import { formatInZone, isGate, type Asset, type ChannelProfile, type Brief, type Narration, type Render, type Scene, type Script, type StageName, type Storyboard, type Upload } from "@vcp/core";
 import {
   getAssets,
   getIdea,
@@ -9,7 +9,10 @@ import {
   latestScript,
   latestStoryboard,
   latestUpload,
+  listChannels,
   listStages,
+  listUploads,
+  loadPipelineConfig,
 } from "@vcp/db";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
@@ -17,7 +20,7 @@ import { Poller } from "@/components/Poller";
 import { ScriptEditor } from "@/components/ScriptEditor";
 import { AudioPlayer } from "@/components/ui/AudioPlayer";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Field, Input } from "@/components/ui/Field";
+import { Field, Input, Select } from "@/components/ui/Field";
 import { absoluteTime, hostOf, mediaTime } from "@/components/ui/format";
 import { GateBanner, type GateName } from "@/components/ui/GateBanner";
 import { Icon } from "@/components/ui/Icon";
@@ -37,7 +40,8 @@ import { Tag } from "@/components/ui/Tag";
 import type { MetaItem, StageRun } from "@/components/ui/types";
 import { VerticalPreview } from "@/components/ui/VerticalPreview";
 import { blobUrl } from "@/lib/blob";
-import { approveScript, approveVideo, publishUpload, rejectProject, replaceAsset, retryStage } from "./actions";
+import { STAND_IN_LANGUAGE, currentUploadFor, suggestedChannel } from "@/lib/destination";
+import { approveScript, approveVideo, checkRelease, chooseChannel, publishUpload, rejectProject, replaceAsset, retryStage } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +88,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const project = await getProject(id);
   if (!project) notFound();
 
-  const [idea, stageRows, brief, script, narration, storyboard, render, upload] = await Promise.all([
+  const [idea, stageRows, brief, script, narration, storyboard, render, latest, channels, allUploads, current, config] = await Promise.all([
     getIdea(project.ideaId),
     listStages(id),
     latestBrief(id),
@@ -93,7 +97,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     latestStoryboard(id),
     latestRender(id),
     latestUpload(id),
+    listChannels(),
+    listUploads(id),
+    currentUploadFor(id, project.channelId),
+    loadPipelineConfig(id),
   ]);
+  // The upload for the saved destination; otherwise the newest one, so history stays visible.
+  const upload = current ?? latest;
+  const otherUploads = allUploads.filter((u) => u.id !== upload?.id);
+  const channelById = new Map(channels.map((c) => [c.channelId, c]));
+  const savedChannel = project.channelId ? channelById.get(project.channelId) : undefined;
+  const publisherId = config.ports.Publisher?.providerId ?? "unbound";
+  const needsChannel = !project.dryRun && !publisherId.startsWith("fake-");
   const artifacts: Artifacts = { brief, script, narration, storyboard, render, upload };
   const assetIds = storyboard?.scenes.map((s) => s.assetId).filter((x): x is string => Boolean(x)) ?? [];
   const assets = new Map((await getAssets(assetIds)).map((a) => [a.id, a]));
@@ -106,6 +121,25 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const reviewRender = gate === "approve-video" && videoReview?.status === "waiting" &&
     render?.storyboardId === storyboard?.id ? render : undefined;
   const reject = rejectProject.bind(null, project.id);
+  const uploadRow = stageRows.find((row) => row.name === "upload");
+  const retargeting = gate === "approve-publish" && Boolean(project.channelId) && current?.channelId !== project.channelId;
+  const destination = (
+    <span>
+      Destination:{" "}
+      {project.channelId ? (
+        <ChannelName channel={savedChannel} channelId={project.channelId} />
+      ) : (
+        <span className="vcp-muted">{needsChannel ? "none chosen — choose a channel below" : "none (fake publisher)"}</span>
+      )}
+      {gate === "approve-publish" && current ? (
+        <>
+          {" "}
+          · remote <span className="vcp-mono">{current.remoteId}</span>
+        </>
+      ) : null}
+    </span>
+  );
+  const pickerLocked = project.status === "published" || project.status === "rejected" || project.currentStage === "publish";
 
   const ci = currentIndex(runs);
   const doneCount = runs.filter((r) => r.status === "done").length;
@@ -245,7 +279,28 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         collapsible
         defaultOpen={open.includes("upload")}
       >
-        {upload ? <MetaList items={uploadMeta(upload)} className="vcp-upload-meta" /> : <Empty k="upload" runs={runs} live={live} />}
+        {upload ? (
+          <>
+            <MetaList items={uploadMeta(upload, channelById)} className="vcp-upload-meta" />
+            {otherUploads.length ? (
+              <div>
+                <span className="vcp-kicker">Other destinations</span>
+                <MetaList
+                  items={otherUploads.map((u) => ({
+                    label: u.channelId ? channelById.get(u.channelId)?.label ?? u.channelId : "no channel recorded",
+                    value: (
+                      <span className="vcp-mono">
+                        {u.channelId ?? "—"} · {u.remoteId} · {u.privacy} · {u.status}
+                      </span>
+                    ),
+                  }))}
+                />
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <Empty k="upload" runs={runs} live={live} />
+        )}
       </Panel>
     ),
   };
@@ -304,9 +359,35 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           {gate === "approve-video" && videoReview?.error ? (
             <Notice tone="failed" title="Video review update failed">{videoReview.error}</Notice>
           ) : null}
+          {retargeting ? (
+            uploadRow?.status === "failed" ? (
+              <Notice tone="failed" title={`Upload to ${savedChannel?.label ?? project.channelId} failed`}>
+                {uploadRow.error ?? "See the run logs."} Choose the channel again to retry.
+              </Notice>
+            ) : (
+              <Notice tone="running" title={`Uploading to ${savedChannel?.label ?? project.channelId}`}>
+                The approved render goes up as private to the new destination. The earlier upload keeps its channel and privacy.
+              </Notice>
+            )
+          ) : null}
+          {project.currentStage === "publish" && upload?.status === "scheduled" ? (
+            <Notice
+              tone="waiting"
+              title="Scheduled, not yet public"
+              action={
+                <form action={checkRelease.bind(null, project.id, upload.id)}>
+                  <SubmitButton size="sm" icon="restore">Check now</SubmitButton>
+                </form>
+              }
+            >
+              {upload.publishAt ? scheduleText(upload.publishAt, upload.publishTimeZone) : null}. It stays private until a status read
+              confirms YouTube made it public.
+            </Notice>
+          ) : null}
           {gate ? (
             <GateBanner
               gate={gate}
+              destination={gate === "approve-script" ? undefined : destination}
               approveAction={
                 gate === "approve-script"
                   ? approveScript.bind(null, project.id)
@@ -315,9 +396,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                     : publishUpload.bind(null, project.id)
               }
               rejectAction={reject}
-              disabled={gate === "approve-script" ? !script : gate === "approve-video" ? !reviewRender : !upload}
+              disabled={
+                gate === "approve-script"
+                  ? !script
+                  : gate === "approve-video"
+                    ? !reviewRender || (needsChannel && !project.channelId)
+                    : !current || retargeting
+              }
             />
           ) : null}
+          <Panel title="Destination" meta={project.channelId ? <ChannelName channel={savedChannel} channelId={project.channelId} /> : "not chosen"}>
+            <ChannelPicker
+              projectId={project.id}
+              channels={channels}
+              suggestion={suggestedChannel(project, channels)}
+              locked={pickerLocked}
+              needsChannel={needsChannel}
+            />
+          </Panel>
           <Panel
             title="Stages"
             meta={`${ci + 1}/${runs.length} · ${runs[ci]!.label}`}
@@ -491,8 +587,74 @@ function renderMeta(render: Render): MetaItem[] {
   ];
 }
 
-function uploadMeta(upload: Upload): MetaItem[] {
+function ChannelName({ channel, channelId }: { channel?: ChannelProfile; channelId: string }) {
+  return (
+    <>
+      <strong>{channel?.label ?? "unknown channel"}</strong> <span className="vcp-mono vcp-faint">{channelId}</span>
+    </>
+  );
+}
+
+function ChannelPicker({
+  projectId,
+  channels,
+  suggestion,
+  locked,
+  needsChannel,
+}: {
+  projectId: string;
+  channels: ChannelProfile[];
+  suggestion: { channel?: ChannelProfile; saved: boolean };
+  locked: boolean;
+  needsChannel: boolean;
+}) {
+  if (!channels.length) {
+    return (
+      <p className="vcp-muted">
+        No channels connected{needsChannel ? "; a real upload needs one" : ""}. Run <code>pnpm channels connect</code>.
+      </p>
+    );
+  }
+  const options = channels.map((c) => ({
+    value: c.channelId,
+    label: `${c.label} · ${c.channelId}${c.defaultFor.length ? ` · default for ${c.defaultFor.join(", ")}` : ""}`,
+  }));
+  return (
+    <form action={chooseChannel.bind(null, projectId)} className="vcp-channel-picker">
+      <Field
+        label="Channel"
+        hint={
+          suggestion.saved
+            ? "Saved on this project. Changing language defaults does not change it."
+            : suggestion.channel
+              ? `Suggested: default for ${STAND_IN_LANGUAGE}. Not saved until you choose it.`
+              : "Not chosen yet."
+        }
+      >
+        <Select
+          name="channelId"
+          options={suggestion.channel ? options : [{ value: "", label: "Choose a channel…" }, ...options]}
+          defaultValue={suggestion.channel?.channelId ?? ""}
+          disabled={locked}
+          required
+        />
+      </Field>
+      {locked ? null : <SubmitButton size="sm">{suggestion.saved ? "Change destination" : "Use this channel"}</SubmitButton>}
+    </form>
+  );
+}
+
+function scheduleText(publishAt: string, zone: string | undefined): string {
+  return zone ? `Publishes ${formatInZone(publishAt, zone)} ${zone} (${publishAt})` : `Publishes ${absoluteTime(publishAt)}`;
+}
+
+function uploadMeta(upload: Upload, channels: Map<string, ChannelProfile>): MetaItem[] {
+  const channel = upload.channelId ? channels.get(upload.channelId) : undefined;
   const items: MetaItem[] = [
+    {
+      label: "Channel",
+      value: upload.channelId ? <ChannelName channel={channel} channelId={upload.channelId} /> : "not recorded (pre-channel upload)",
+    },
     {
       label: "Privacy",
       value: <StatusBadge kind="privacy" status={upload.privacy} size="sm" />,
@@ -501,7 +663,7 @@ function uploadMeta(upload: Upload): MetaItem[] {
     { label: "Remote ID", value: upload.remoteId, mono: true, copy: true },
     { label: "Provider", value: upload.provider, mono: true },
   ];
-  if (upload.publishAt) items.push({ label: "Publish at", value: absoluteTime(upload.publishAt), mono: true });
+  if (upload.publishAt) items.push({ label: "Publish at", value: scheduleText(upload.publishAt, upload.publishTimeZone).replace(/^Publishes /, ""), mono: true });
   if (upload.remoteUrl) {
     items.push({
       label: "Link",

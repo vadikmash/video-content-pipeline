@@ -3,6 +3,7 @@ import {
   nowIso,
   type Asset,
   type Brief,
+  type ChannelProfile,
   type Idea,
   type Narration,
   type NewIdea,
@@ -28,6 +29,7 @@ export class MemoryStore implements Store {
   assets = new Map<string, Asset>();
   renders: Render[] = [];
   uploads: Upload[] = [];
+  channels = new Map<string, ChannelProfile>();
   events: { projectId: string | null; type: string; payload: Record<string, unknown> }[] = [];
 
   constructor(private readonly config: PipelineConfig) {}
@@ -40,11 +42,25 @@ export class MemoryStore implements Store {
     return idea;
   }
 
-  addProject(ideaId: string, dryRun = false): Project {
+  addProject(ideaId: string, dryRun = false, channelId?: string): Project {
     const now = nowIso();
-    const p: Project = { id: newId(), ideaId, status: "active", dryRun, createdAt: now, updatedAt: now };
+    const p: Project = { id: newId(), ideaId, status: "active", dryRun, ...(channelId ? { channelId } : {}), createdAt: now, updatedAt: now };
     this.projects.set(p.id, p);
     return p;
+  }
+
+  addChannel(channelId: string, label: string, credentialRef = "YOUTUBE_REFRESH_TOKEN"): ChannelProfile {
+    const now = nowIso();
+    const c: ChannelProfile = { channelId, provider: "youtube", label, credentialRef, defaultFor: [], createdAt: now, updatedAt: now };
+    this.channels.set(channelId, c);
+    return c;
+  }
+
+  setProjectChannel(projectId: string, channelId: string | undefined): void {
+    const p = this.projects.get(projectId);
+    if (!p) throw new Error(`project ${projectId} not found`);
+    const { channelId: _old, ...rest } = p;
+    this.projects.set(projectId, { ...rest, ...(channelId ? { channelId } : {}), updatedAt: nowIso() });
   }
 
   // -- Store -----------------------------------------------------------------
@@ -173,6 +189,14 @@ export class MemoryStore implements Store {
   }
   async latestUpload(projectId: string) {
     return [...this.uploads].reverse().find((u) => u.projectId === projectId);
+  }
+
+  async findUpload(projectId: string, renderId: string, channelId: string | undefined) {
+    return [...this.uploads].reverse().find((u) => u.projectId === projectId && u.renderId === renderId && u.channelId === channelId);
+  }
+
+  async getChannel(channelId: string) {
+    return this.channels.get(channelId);
   }
 
   async logEvent(projectId: string | null, type: string, payload: Record<string, unknown> = {}) {

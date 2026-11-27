@@ -11,6 +11,8 @@ import { write } from "./write";
 export { research, write, voice, storyboard, assets, render, upload, publish };
 export * from "./context";
 export * from "./runner";
+export * from "./destination";
+export { confirmRelease } from "./confirm";
 
 /** Work stages in pipeline order (gates are not here; see core GATES). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

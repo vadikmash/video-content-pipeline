@@ -138,11 +138,25 @@ export interface Renderer {
   render(input: RenderInput): Promise<Render>;
 }
 
+/** Where a Publisher call goes and which stored credential it must use. */
+export interface PublishTarget {
+  /** Provider channel ID the credential must authenticate as. */
+  channelId: string;
+  /** Env var holding the channel's refresh token (see CredentialRef). */
+  credentialRef: string;
+}
+
 export interface Publisher {
   id: string;
-  upload(render: Render, meta: UploadMeta, privacy: Privacy): Promise<Upload>;
-  setPrivacy(upload: Upload, privacy: Privacy, publishAt?: string): Promise<Upload>;
-  status(upload: Upload): Promise<Upload>;
+  /**
+   * Real publishers require `target` and must verify the authenticated channel matches
+   * `target.channelId` before any remote write. Fakes accept a missing target.
+   */
+  upload(render: Render, meta: UploadMeta, privacy: Privacy, target?: PublishTarget): Promise<Upload>;
+  /** Publishes, schedules (future `publishAt`) or changes privacy. A schedule returns status "scheduled". */
+  setPrivacy(upload: Upload, privacy: Privacy, publishAt?: string, target?: PublishTarget): Promise<Upload>;
+  /** Remote read. Status is "published" only when the remote privacy is public. */
+  status(upload: Upload, target?: PublishTarget): Promise<Upload>;
 }
 
 export interface BlobStore {

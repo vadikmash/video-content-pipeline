@@ -13,7 +13,17 @@ export const EventSchemas = {
   "asset.replace": z.object({
     projectId: Id, renderId: Id, requestId: Id, beatId: Id, visual: StoryboardVisual,
   }),
-  "upload.publish": z.object({ projectId: Id, uploadId: Id, publishAt: IsoDate.optional() }),
+  /** Approval to publish `uploadId`; with publishAt (a UTC instant) it schedules, in the reviewer's publishTimeZone. */
+  "upload.publish": z.object({
+    projectId: Id,
+    uploadId: Id,
+    publishAt: IsoDate.optional(),
+    publishTimeZone: z.string().min(1).optional(),
+  }),
+  /** The destination changed while waiting to publish: upload the approved render to the new channel. */
+  "upload.retarget": z.object({ projectId: Id, channelId: z.string().min(1), requestId: Id }),
+  /** Read a scheduled upload's remote status now. */
+  "upload.check": z.object({ projectId: Id, uploadId: Id }),
   "project.rejected": z.object({ projectId: Id, stage: z.string(), reason: z.string() }),
   "ideas.discover": z.object({ limit: z.number().int().positive().optional() }),
 } as const;

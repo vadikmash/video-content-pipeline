@@ -1,7 +1,9 @@
 "use server";
 
-import { Script, isStageName, newId, retryTrigger, scriptText } from "@vcp/core";
+import { Script, isStageName, isTimeZone, newId, retryTrigger, scriptText, zonedTimeToInstant } from "@vcp/core";
 import {
+  findUpload,
+  getChannel,
   getProject,
   getRender,
   getStage,
@@ -9,15 +11,17 @@ import {
   insertScript,
   latestRender,
   latestScript,
-  latestUpload,
+  loadPipelineConfig,
   logEvent,
   nextScriptVersion,
   releaseVideoReview,
   reserveVideoReview,
+  setProjectChannel,
   updateProject,
   upsertStage,
 } from "@vcp/db";
 import { revalidatePath } from "next/cache";
+import { currentUploadFor } from "@/lib/destination";
 import { sendEvent } from "@/lib/inngest";
 
 async function requireProject(id: string) {
@@ -75,7 +79,45 @@ export async function approveScript(projectId: string): Promise<void> {
   revalidatePath(`/projects/${projectId}`);
 }
 
+/** A real upload needs a saved destination; the fake publisher and dry runs do not. */
+async function requiresChannel(projectId: string, dryRun: boolean): Promise<boolean> {
+  if (dryRun) return false;
+  const providerId = (await loadPipelineConfig(projectId)).ports.Publisher?.providerId;
+  return Boolean(providerId && !providerId.startsWith("fake-"));
+}
+
+/**
+ * Save the project's destination. Routing defaults only pre-fill this choice; once saved it is
+ * the project's own. Changing it while waiting to publish uploads the approved render to the new
+ * channel (a new, separate record) and makes approvals for the old upload stale.
+ */
+export async function chooseChannel(projectId: string, formData: FormData): Promise<void> {
+  const project = await requireProject(projectId);
+  if (project.status === "published" || project.status === "rejected") throw new Error("The destination of a finished project cannot change");
+  if (project.currentStage === "publish") throw new Error("Publishing has started; the destination cannot change");
+  const channelId = String(formData.get("channelId") ?? "").trim();
+  if (!channelId) throw new Error("Choose a channel");
+  if (!(await getChannel(channelId))) throw new Error("That channel is not connected");
+  if (project.channelId === channelId) return;
+
+  await setProjectChannel(projectId, channelId);
+  await logEvent(projectId, "project.channel", { from: project.channelId ?? null, to: channelId });
+  if (project.status === "waiting" && project.currentStage === "approve-publish" && !(await findUploadForLatest(projectId, channelId))) {
+    await sendEvent("upload.retarget", { projectId, channelId, requestId: newId() });
+  }
+  revalidatePath(`/projects/${projectId}`);
+}
+
+async function findUploadForLatest(projectId: string, channelId: string) {
+  const render = await latestRender(projectId);
+  return render ? findUpload(projectId, render.id, channelId) : undefined;
+}
+
 export async function approveVideo(projectId: string, renderId: string): Promise<void> {
+  const project = await requireProject(projectId);
+  if (!project.channelId && (await requiresChannel(projectId, project.dryRun))) {
+    throw new Error("Choose a destination channel before approving the upload");
+  }
   const requestId = newId();
   if (!await reserveVideoReview(projectId, renderId, requestId)) return;
   try {
@@ -111,12 +153,26 @@ export async function replaceAsset(projectId: string, renderId: string, beatId: 
 }
 
 export async function publishUpload(projectId: string, formData: FormData): Promise<void> {
-  await requireProject(projectId);
-  const upload = await latestUpload(projectId);
-  if (!upload) throw new Error("no upload to publish");
+  const project = await requireProject(projectId);
+  const upload = await currentUploadFor(projectId, project.channelId);
+  if (!upload) throw new Error("No upload to the selected destination yet");
   const raw = String(formData.get("publishAt") ?? "").trim();
-  const publishAt = raw ? new Date(raw).toISOString() : undefined;
-  await sendEvent("upload.publish", { projectId, uploadId: upload.id, publishAt });
+  let publishAt: string | undefined;
+  let publishTimeZone: string | undefined;
+  if (raw) {
+    publishTimeZone = String(formData.get("timeZone") ?? "").trim() || "UTC";
+    if (!isTimeZone(publishTimeZone)) throw new Error(`Unknown time zone "${publishTimeZone}"`);
+    publishAt = zonedTimeToInstant(raw, publishTimeZone);
+    if (new Date(publishAt).getTime() <= Date.now()) throw new Error("The scheduled time has already passed");
+  }
+  await sendEvent("upload.publish", { projectId, uploadId: upload.id, publishAt, publishTimeZone });
+  revalidatePath(`/projects/${projectId}`);
+}
+
+/** Read a scheduled upload's status on the remote now, instead of waiting for the next check. */
+export async function checkRelease(projectId: string, uploadId: string): Promise<void> {
+  await requireProject(projectId);
+  await sendEvent("upload.check", { projectId, uploadId });
   revalidatePath(`/projects/${projectId}`);
 }
 
