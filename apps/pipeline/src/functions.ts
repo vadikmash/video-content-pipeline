@@ -1,5 +1,5 @@
 import { GATES, GATE_EVENTS, STAGES, isGate, previousStage, type GateName, type StageName } from "@vcp/core";
-import { acceptVideoApproval, insertIdea, listIdeas, loadPipelineConfig, logEvent, releaseVideoReview } from "@vcp/db";
+import { acceptVideoApproval, insertIdeaIfNew, listIdeas, loadPipelineConfig, logEvent, releaseVideoReview } from "@vcp/db";
 import { registry } from "@vcp/providers";
 import { runDiscovery } from "@vcp/providers/discover";
 import { mapError } from "./errors";
@@ -190,17 +190,12 @@ export const onProjectRejected = inngest.createFunction(
 async function discoverIdeasStep(limit?: number) {
   const config = await loadPipelineConfig();
   const providerId = config.ports.IdeaSource?.providerId;
+  // Resolve through the registry like other ports; the importer itself is shared with the dashboard.
   const source =
     providerId && providerId !== "source-manual"
-      ? registry.instantiate("IdeaSource", providerId, {})
+      ? registry.resolve("IdeaSource", config, registry.resolve("BlobStore", config))
       : undefined;
-  const result = await runDiscovery({
-    listIdeas,
-    insertIdea,
-    providerId,
-    source,
-    limit,
-  });
+  const result = await runDiscovery({ listIdeas, insertIdeaIfNew, providerId, source, limit });
   await logEvent(null, "ideas.discovered", {
     providerId: result.providerId,
     added: result.added,

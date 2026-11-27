@@ -69,8 +69,8 @@ export function IdeaRow({ idea, projectHref, actions, defaultOpen }: IdeaRowProp
           {ev.map((e, k) => (
             <li key={k}>
               <q>{e.quote}</q>
-              <a href={e.url} target="_blank" rel="noreferrer">
-                {hostOf(e.url)}
+              <a href={e.url} target="_blank" rel="noreferrer" title={e.url}>
+                {e.title ?? hostOf(e.url)}
                 <Icon name="external" size={12} />
               </a>
             </li>

@@ -1,0 +1,166 @@
+{
+  "dyk": [
+    {
+      "html": "... that <a rel=\"mw:WikiLink\" href=\"https://en.wikipedia.org/wiki/Hugo_Weisgall\" title=\"Hugo Weisgall\" id=\"mwKA\">Hugo Weisgall</a>'s opera <i id=\"mwKQ\"><b id=\"mwKg\"><a rel=\"mw:WikiLink\" href=\"https://en.wikipedia.org/wiki/Athaliah_(opera)\" title=\"Athaliah (opera)\" id=\"mwKw\">Athaliah</a></b></i>, despite being described as potentially his masterpiece, has only had a single concert performance?",
+      "text": "... that Hugo Weisgall's opera Athaliah, despite being described as potentially his masterpiece, has only had a single concert performance?"
+    },
+    {
+      "html": "... that <b id=\"mwLQ\"><a rel=\"mw:WikiLink\" href=\"https://en.wikipedia.org/wiki/Captain_Thule\" title=\"Captain Thule\" id=\"mwLg\">Captain Thule</a></b> convincingly won the 68th <a rel=\"mw:WikiLink\" href=\"https://en.wikipedia.org/wiki/Satsuki_Shō\" title=\"Satsuki Shō\" id=\"mwLw\">Satsuki Shō</a>, but suffered a leg fracture requiring 16 months to recover?",
+      "text": "... that Captain Thule convincingly won the 68th Satsuki Shō, but suffered a leg fracture requiring 16 months to recover?"
+    },
+    {
+      "html": "... that <b id=\"mwMQ\"><a rel=\"mw:WikiLink\" href=\"https://en.wikipedia.org/wiki/Merchants_Refrigerating_Company_Warehouse\" title=\"Merchants Refrigerating Company Warehouse\" id=\"mwMg\">a newly sold Manhattan warehouse</a></b> needed seven months to thaw out before it could be used?",
+      "text": "... that a newly sold Manhattan warehouse needed seven months to thaw out before it could be used?"
+    }
+  ],
+  "onthisday": [
+    {
+      "text": "Astronomers announced the detection of sodium in the atmosphere of the extrasolar planet HD 209458 b, the first exoplanet atmosphere to be measured.",
+      "year": 2001,
+      "pages": [
+        {
+          "title": "Sodium",
+          "titles": {
+            "normalized": "Sodium"
+          },
+          "description": "Chemical element with atomic number 11 (Na)",
+          "extract": "Sodium is a chemical element; it has symbol Na and atomic number 11. It is a soft, silvery-white, highly reactive metal. Sodium is an alkali metal, being in group 1 of the periodic table. Its only stable isotope is 23Na. The free metal does not occur in nature and must be prepared from compounds. Sodium is the sixth–most abundant element in the Earth's crust and exists in numerous minerals such as feldspars, sodalite, and halite (NaCl). Many salts of sodium are highly water-soluble: sodium ions have been leached by the action of water from the Earth's minerals over eons, and thus sodium and chlorine are the most common dissolved elements by weight in the oceans.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/Sodium"
+            }
+          }
+        },
+        {
+          "title": "Exoplanet",
+          "titles": {
+            "normalized": "Exoplanet"
+          },
+          "description": "Planet outside of the Solar System",
+          "extract": "An exoplanet or extrasolar planet is a planet outside the Solar System. The first confirmed detection of an exoplanet was in 1992 around a pulsar, and the first detection around a main-sequence star was in 1995. A different planet, first detected in 1988, was confirmed in 2003. In 2016, it was recognized that the first possible evidence of an exoplanet had been noted in 1917, a precovery. As of 5 November 2026, there are 6,464 confirmed exoplanets in 4,849 planetary systems, with 1,074 systems having more than one planet.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/Exoplanet"
+            }
+          }
+        },
+        {
+          "title": "HD_209458_b",
+          "titles": {
+            "normalized": "HD 209458 b"
+          },
+          "description": "Gas giant exoplanet orbiting HD 209458",
+          "extract": "HD 209458 b is an exoplanet, specifically a hot Jupiter, that orbits the solar analog HD 209458 in the constellation Pegasus, some 157 light-years from the Solar System. It is sometimes informally called Osiris. The radius of the planet's orbit is 0.047 AU, or one-eighth the radius of Mercury's orbit. This small orbital distance results in a year that is 3.5 Earth-days long and an estimated surface temperature of about 1,000 °C. Its mass is 220 times that of Earth and its volume is some 2.5 times greater than that of Jupiter. The high mass and volume of HD 209458 b indicate that it is a gas giant.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/HD_209458_b"
+            }
+          }
+        },
+        {
+          "title": "Extraterrestrial_atmosphere",
+          "titles": {
+            "normalized": "Extraterrestrial atmosphere"
+          },
+          "description": "Area of astronomical research",
+          "extract": "The study of extraterrestrial atmospheres is an active field of research, both as an aspect of astronomy and to gain insight into Earth's atmosphere. In addition to Earth, many of the other astronomical objects in the Solar System have atmospheres. These include all the giant planets, as well as the other planets Mars, Venus and Titan, Triton, and Pluto.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/Extraterrestrial_atmosphere"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "text": "Korean War: The Chinese People's Volunteer Army launched multiple attacks against United Nations forces, beginning the Battle of Chosin Reservoir.",
+      "year": 1950,
+      "pages": [
+        {
+          "title": "Korean_War",
+          "titles": {
+            "normalized": "Korean War"
+          },
+          "description": "1950–1953 conflict on the Korean Peninsula",
+          "extract": "The Korean War was an armed conflict fought on the Korean Peninsula between North Korea and South Korea and their allies. North Korea was supported by China and the Soviet Union, while South Korea was supported by the United Nations led by the United States under the auspices of the United Nations Command (UNC).",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/Korean_War"
+            }
+          }
+        },
+        {
+          "title": "People's_Volunteer_Army",
+          "titles": {
+            "normalized": "People's Volunteer Army"
+          },
+          "description": "Communist Chinese forces during the Korean War",
+          "extract": "The People's Volunteer Army (PVA), officially the Chinese People's Volunteers (CPV), was the designation for the Chinese communist contingent of armed expeditionary forces deployed by the People's Republic of China during the Korean War. Although all units in the PVA were actually transferred from the People's Liberation Army (PLA) under the orders of Chairman Mao Zedong, the PVA was separately constituted in order to prevent an official war with the United States. The PVA entered Korea on 19 October 1950 and completely withdrew by October 1958. The nominal commander and political commissar of the PVA was Peng Dehuai before the ceasefire agreement in 1953, although both Chen Geng and Deng Hua served as the acting commander and commissar after April 1952 following Peng's illness. The initial units in the PVA included 38th, 39th, 40th, 42nd, 50th, 66th Corps; totalling 250,000 men. About 3 million Chinese civilian and military personnel had served in Korea throughout the war.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/People's_Volunteer_Army"
+            }
+          }
+        },
+        {
+          "title": "Battle_of_Chosin_Reservoir",
+          "titles": {
+            "normalized": "Battle of Chosin Reservoir"
+          },
+          "description": "1950 Korean War battle",
+          "extract": "The Battle of Chosin Reservoir, also known as the Chosin Reservoir Campaign or the Battle of Lake Changjin, was a battle in the Korean War. The name \"Chosin\" is derived from the Japanese pronunciation \"Chōshin\", instead of the Korean pronunciation.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/Battle_of_Chosin_Reservoir"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "text": "Between 3,500 and 4,000 tonnes of ordnance exploded at the RAF Fauld underground munitions storage depot in the largest non-nuclear explosion in the United Kingdom.",
+      "year": 1944,
+      "pages": [
+        {
+          "title": "RAF_Fauld_explosion",
+          "titles": {
+            "normalized": "RAF Fauld explosion"
+          },
+          "description": "1944 military accident in Staffordshire, England",
+          "extract": "The RAF Fauld explosion occurred during the Second World War at the RAF Fauld underground munitions storage depot in Staffordshire, England at 11:11 am on Monday, 27 November 1944. The blast, which was one of the largest non-nuclear explosions in history, detonated between 3,500 and 4,000 tonnes of high explosive military ordnance. It created an explosion crater with a depth of 100 feet (30 m) and a maximum width of 1,007 feet (307 m).",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/RAF_Fauld_explosion"
+            }
+          }
+        },
+        {
+          "title": "RAF_Fauld",
+          "titles": {
+            "normalized": "RAF Fauld"
+          },
+          "description": "Former Royal Air Force munitions storage location in Staffordshire, England",
+          "extract": "Royal Air Force Fauld is a former Royal Air Force underground munitions storage depot located 2 miles (3.2 km) south west of Tutbury, Staffordshire and 10.4 miles (16.7 km) north east of Rugeley, Staffordshire, England.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/RAF_Fauld"
+            }
+          }
+        },
+        {
+          "title": "Largest_artificial_non-nuclear_explosions",
+          "titles": {
+            "normalized": "Largest artificial non-nuclear explosions"
+          },
+          "description": "List of large explosions",
+          "extract": "There have been many extremely large explosions, accidental and intentional, caused by modern high explosives, boiling liquid expanding vapour explosions (BLEVEs), older explosives such as gunpowder, volatile petroleum-based fuels such as petrol, and other chemical reactions. This list contains the largest known examples, sorted by date. An unambiguous ranking in order of severity is not possible; a 1994 study by historian Jay White of 130 large explosions suggested that they need to be ranked by an overall effect of power, quantity, radius, loss of life and property destruction, but concluded that such rankings are difficult to assess.",
+          "content_urls": {
+            "desktop": {
+              "page": "https://en.wikipedia.org/wiki/Largest_artificial_non-nuclear_explosions"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

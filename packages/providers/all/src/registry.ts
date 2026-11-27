@@ -18,6 +18,7 @@ import * as llmOpenai from "@vcp/provider-llm-openai";
 import * as publishYoutube from "@vcp/provider-publish-youtube";
 import * as renderRemotion from "@vcp/provider-render-remotion";
 import * as sourceManual from "@vcp/provider-source-manual";
+import * as sourceWikimedia from "@vcp/provider-source-wikimedia";
 import * as stockPixabay from "@vcp/provider-stock-pixabay";
 import * as ttsOpenai from "@vcp/provider-tts-openai";
 import * as ttsElevenlabs from "@vcp/provider-tts-elevenlabs";
@@ -28,6 +29,7 @@ export function createRegistry(): ProviderRegistry {
     .register(blobLocal.manifest, blobLocal.create)
     .register(sourceManual.manifest, sourceManual.create)
     .register(fakeSource.manifest, fakeSource.create)
+    .register(sourceWikimedia.manifest, sourceWikimedia.create)
     .register(fakeLlm.manifest, fakeLlm.create)
     .register(llmOpenai.manifest, llmOpenai.create)
     .register(llmAnthropic.manifest, llmAnthropic.create)

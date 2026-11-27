@@ -35,9 +35,9 @@ importers:
       '@vcp/provider-blob-local':
         specifier: workspace:*
         version: link:../../packages/providers/blob-local
-      '@vcp/provider-fake-source':
+      '@vcp/providers':
         specifier: workspace:*
-        version: link:../../packages/providers/fake-source
+        version: link:../../packages/providers/all
       inngest:
         specifier: ^4.26.2
         version: 4.26.2(@opentelemetry/core@3.0.0(@opentelemetry/api@1.10.0))(next@16.4.4(@babel/core@7.29.7)(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(react@19.3.1)(typescript@5.9.3)(zod@4.6.7)
@@ -285,6 +285,9 @@ importers:
       '@vcp/provider-source-manual':
         specifier: workspace:*
         version: link:../source-manual
+      '@vcp/provider-source-wikimedia':
+        specifier: workspace:*
+        version: link:../source-wikimedia
       '@vcp/provider-stock-pixabay':
         specifier: workspace:*
         version: link:../stock-pixabay
@@ -629,6 +632,25 @@ importers:
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/providers/source-manual:
+    dependencies:
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@vcp/limits':
+        specifier: workspace:*
+        version: link:../../limits
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/providers/source-wikimedia:
     dependencies:
       '@vcp/core':
         specifier: workspace:*

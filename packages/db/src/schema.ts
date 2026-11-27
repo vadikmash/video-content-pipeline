@@ -41,9 +41,15 @@ export const ideas = pgTable(
     opinion: boolean("opinion").notNull().default(false),
     score: real("score"),
     status: text("status").notNull().default("new"),
+    /** Set by the discovery importer (normalised source URL or title). Unique so repeated or overlapping runs cannot insert the same idea twice. */
+    dedupeKey: text("dedupe_key"),
     createdAt: createdAt(),
   },
-  (t) => [index("ideas_status_idx").on(t.status), index("ideas_domain_idx").on(t.domain)],
+  (t) => [
+    index("ideas_status_idx").on(t.status),
+    index("ideas_domain_idx").on(t.domain),
+    uniqueIndex("ideas_dedupe_key_idx").on(t.dedupeKey),
+  ],
 );
 
 export const projects = pgTable("projects", {

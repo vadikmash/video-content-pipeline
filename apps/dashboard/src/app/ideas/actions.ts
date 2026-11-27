@@ -1,11 +1,11 @@
 "use server";
 
 import { Domain, NewIdea } from "@vcp/core";
-import { createProject, getIdea, insertIdea, listIdeas, logEvent, setIdeaStatus } from "@vcp/db";
+import { createProject, getIdea, insertIdea, insertIdeaIfNew, listIdeas, loadPipelineConfig, logEvent, setIdeaStatus } from "@vcp/db";
+import { runDiscovery } from "@vcp/providers/discover";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { discoverIdeasLocal } from "@/lib/discover";
 import { sendEvent } from "@/lib/inngest";
 
 const AddIdeaForm = z.object({
@@ -39,9 +39,15 @@ export async function addIdea(formData: FormData): Promise<void> {
   revalidatePath("/ideas");
 }
 
-/** Pull candidate facts from IdeaSource (fake-source in M0). */
+/** Pull candidate facts from the bound IdeaSource through the same importer as the daily cron. */
 export async function discoverIdeas(): Promise<void> {
-  const result = await discoverIdeasLocal({ listIdeas, insertIdea });
+  const binding = (await loadPipelineConfig()).ports.IdeaSource;
+  const result = await runDiscovery({
+    listIdeas,
+    insertIdeaIfNew,
+    providerId: binding?.providerId,
+    options: binding?.options,
+  });
   await logEvent(null, "ideas.discovered", {
     providerId: result.providerId,
     added: result.added,

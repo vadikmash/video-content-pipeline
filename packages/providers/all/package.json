@@ -35,7 +35,8 @@
     "@vcp/provider-stock-pixabay": "workspace:*",
     "@vcp/provider-tts-elevenlabs": "workspace:*",
     "zod": "^4.6.7",
-    "@vcp/provider-tts-openai": "workspace:*"
+    "@vcp/provider-tts-openai": "workspace:*",
+    "@vcp/provider-source-wikimedia": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
