@@ -64,6 +64,14 @@ describe("IdeaSource", () => {
       const ideas = await p.make().discover({ limit: 5 });
       expect(Array.isArray(ideas)).toBe(true);
       for (const i of ideas) expect(() => NewIdea.parse(i)).not.toThrow();
+      if (!p.manifest.fake && p.id !== "source-manual") {
+        expect(ideas.length).toBeGreaterThan(0);
+        expect(ideas.length).toBeLessThanOrEqual(5);
+        for (const i of ideas) expect(i.evidence.length).toBeGreaterThan(0);
+      }
+      if (p.manifest.attributionRequired) {
+        for (const i of ideas) for (const e of i.evidence) expect(e.title).toMatch(/CC BY-SA/);
+      }
     });
   }
 });

@@ -43,6 +43,15 @@ async function main() {
     bound.push("Aligner -> align-elevenlabs");
   }
 
+  // Wikipedia's featured feed needs no key. IDEA_SOURCE=fake keeps the canned ideas.
+  if (process.env.IDEA_SOURCE === "fake") {
+    await setPortBinding("IdeaSource", "fake-source");
+    bound.push("IdeaSource -> fake-source");
+  } else {
+    await setPortBinding("IdeaSource", "source-wikimedia");
+    bound.push(`IdeaSource -> source-wikimedia${process.env.WIKIMEDIA_CONTACT ? "" : " (set WIKIMEDIA_CONTACT for the User-Agent)"}`);
+  }
+
   if (process.env.PIXABAY_KEY) {
     await setPortBinding("StockSearch", "stock-pixabay");
     bound.push("StockSearch -> stock-pixabay");

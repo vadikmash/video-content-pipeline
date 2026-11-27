@@ -47,25 +47,39 @@ export async function getIdea(id: string): Promise<Idea | undefined> {
   return row ? toIdea(row) : undefined;
 }
 
+function ideaValues(input: NewIdea, id: string) {
+  return {
+    id,
+    origin: input.origin,
+    sourceProvider: input.sourceProvider,
+    sourceUrl: input.sourceUrl,
+    title: input.title,
+    oneLiner: input.oneLiner,
+    whySurprising: input.whySurprising,
+    domain: input.domain,
+    evidence: input.evidence,
+    opinion: input.opinion,
+    score: input.score,
+    status: input.status,
+  };
+}
+
 export async function insertIdea(input: NewIdea, id = newId()): Promise<Idea> {
+  const [row] = await getDb().insert(ideas).values(ideaValues(input, id)).returning();
+  return toIdea(row!);
+}
+
+/**
+ * Insert unless an idea with the same dedupe key exists. Returns undefined on a duplicate.
+ * The unique index makes this safe when the dashboard and the cron import at the same time.
+ */
+export async function insertIdeaIfNew(input: NewIdea, dedupeKey: string, id = newId()): Promise<Idea | undefined> {
   const [row] = await getDb()
     .insert(ideas)
-    .values({
-      id,
-      origin: input.origin,
-      sourceProvider: input.sourceProvider,
-      sourceUrl: input.sourceUrl,
-      title: input.title,
-      oneLiner: input.oneLiner,
-      whySurprising: input.whySurprising,
-      domain: input.domain,
-      evidence: input.evidence,
-      opinion: input.opinion,
-      score: input.score,
-      status: input.status,
-    })
+    .values({ ...ideaValues(input, id), dedupeKey })
+    .onConflictDoNothing({ target: ideas.dedupeKey })
     .returning();
-  return toIdea(row!);
+  return row ? toIdea(row) : undefined;
 }
 
 export async function setIdeaStatus(id: string, status: IdeaStatus): Promise<void> {
