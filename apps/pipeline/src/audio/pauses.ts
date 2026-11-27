@@ -64,11 +64,23 @@ export function removedSeconds(cuts: readonly Span[]): number {
   return round(cuts.reduce((sum, c) => sum + (c.end - c.start), 0));
 }
 
-/** ffmpeg audio filter that drops the cut regions and closes the gaps. */
+/**
+ * ffmpeg filter graph (for -filter_complex, output label [out]) that keeps the
+ * audio between cuts and joins it. atrim is sample-accurate, and unlike aselect
+ * it behaves the same across ffmpeg releases (8.0's aselect drops nothing).
+ */
 export function cutFilter(cuts: readonly Span[]): string {
-  const between = cuts.map((c) => `between(t,${c.start.toFixed(3)},${c.end.toFixed(3)})`).join("+");
-  // Small sample blocks so cuts land within ~1.5ms instead of a whole MP3 frame (~26ms).
-  return `asetnsamples=n=64,aselect='not(${between})',asetpts=N/SR/TB`;
+  const keep: string[] = [];
+  let from = 0;
+  for (const c of cuts) {
+    keep.push(`atrim=start=${from.toFixed(3)}:end=${c.start.toFixed(3)}`);
+    from = c.end;
+  }
+  keep.push(`atrim=start=${from.toFixed(3)}`);
+  const labels = keep.map((_, i) => `[k${i}]`);
+  const split = `[0:a]asplit=${keep.length}${keep.map((_, i) => `[s${i}]`).join("")}`;
+  const parts = keep.map((trim, i) => `[s${i}]${trim},asetpts=PTS-STARTPTS${labels[i]}`);
+  return [split, ...parts, `${labels.join("")}concat=n=${keep.length}:v=0:a=1[out]`].join(";");
 }
 
 /**
@@ -90,7 +102,7 @@ export async function tightenPauses(
     const detect = await ffmpeg(["-hide_banner", "-i", input, "-af", `silencedetect=noise=${opts.noiseDb}dB:d=0.1`, "-f", "null", "-"]);
     const cuts = cutsFor(parseSilences(detect), opts.maxPauseSec);
     if (!cuts.length) return { audio, words: [...words], removedSec: 0, pauses: 0 };
-    await ffmpeg(["-hide_banner", "-y", "-i", input, "-af", cutFilter(cuts), "-c:a", "libmp3lame", "-b:a", "128k", output]);
+    await ffmpeg(["-hide_banner", "-y", "-i", input, "-filter_complex", cutFilter(cuts), "-map", "[out]", "-c:a", "libmp3lame", "-b:a", "128k", output]);
     return {
       audio: new Uint8Array(await readFile(output)),
       contentType: "audio/mpeg",
