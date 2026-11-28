@@ -50,7 +50,7 @@ export function create(ctx: ProviderContext): TextModel {
       validatePromptImages(manifest.id, prompt.images, supportsImages(model));
       const jsonSchema = strictJsonSchema(schema);
       const { system, user } = promptText(prompt);
-      return parseWithOneRetry(schema, user, (message, repair) => complete(apiKey, model, jsonSchema, prompt, system, message, repair));
+      return parseWithOneRetry(schema, user, (message, repair) => complete(apiKey, model, jsonSchema, prompt, system, message, repair), prompt.onInvalidOutput);
     },
   };
 }

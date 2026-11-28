@@ -58,6 +58,8 @@ export interface Prompt {
   images?: PromptImage[];
   /** Called once per provider response; `generate` still returns only the parsed value. */
   onUsage?: (usage: PromptUsage) => void;
+  /** Called with the validation issues when a response misses the schema (before the repair call, or before giving up). */
+  onInvalidOutput?: (issues: string, repair: number) => void;
   signal?: AbortSignal;
   /** Output-token cap including reasoning, for steps whose output is long (authored source). Adapters clamp to the model's limit. */
   maxOutputTokens?: number;

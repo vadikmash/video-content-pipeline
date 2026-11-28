@@ -74,6 +74,7 @@ export async function parseWithOneRetry<T>(
   schema: ZodType<T>,
   user: string,
   run: (user: string, repair: number) => Promise<unknown>,
+  onInvalid?: (issues: string, repair: number) => void,
 ): Promise<T> {
   let hint: string | undefined;
   let last = "unknown error";
@@ -85,6 +86,7 @@ export async function parseWithOneRetry<T>(
     const parsed = schema.safeParse(raw);
     if (parsed.success) return parsed.data;
     last = parsed.error.issues.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`).join("; ");
+    onInvalid?.(last, attempt);
     hint = last;
   }
   throw new Error(`output did not match schema: ${last}`);

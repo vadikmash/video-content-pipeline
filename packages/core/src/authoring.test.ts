@@ -14,3 +14,15 @@ describe("poseSet", () => {
     expect(() => poseSet([{ id: "hull", ...pose }, { id: "hull", ...pose }], "start")).toThrow(/start pose for hull appears twice/);
   });
 });
+
+describe("model-facing limits", () => {
+  it("survive into the strict schema as descriptions", async () => {
+    const { strictJsonSchema } = await import("./llm");
+    const { SequenceAuthorDraft, SequenceDirection } = await import("./authoring");
+    const draft = JSON.stringify(strictJsonSchema(SequenceAuthorDraft));
+    expect(draft).not.toContain("maxLength");
+    expect(draft).toContain("At most 1200 characters");
+    expect(draft).toContain("Integer from -30 to 30");
+    expect(JSON.stringify(strictJsonSchema(SequenceDirection))).toContain("At most 600 characters");
+  });
+});

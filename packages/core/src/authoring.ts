@@ -7,26 +7,26 @@
 import { z } from "zod";
 import { CueBinding, MAX_CUE_OFFSET_FRAMES, MAX_SEQUENCE_SOURCE_BYTES, ObjectPose, type PoseSet } from "./animation";
 
-const SequenceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/);
-const ObjectId = z.string().regex(/^[a-z][a-zA-Z0-9-]{0,47}$/);
-const ColorName = z.string().regex(/^[a-z][a-zA-Z0-9]{0,31}$/);
+const SequenceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,63}$/).describe("Lowercase letters, digits and hyphens, at most 64 characters.");
+const ObjectId = z.string().regex(/^[a-z][a-zA-Z0-9-]{0,47}$/).describe("Starts with a lowercase letter; letters, digits and hyphens, at most 48 characters.");
+const ColorName = z.string().regex(/^[a-z][a-zA-Z0-9]{0,31}$/).describe("camelCase, at most 32 characters.");
 
 export const DirectedSequence = z.object({
   sequenceId: SequenceId,
   /** Contiguous timed beats, in script order. */
   beatIds: z.array(z.string().min(1)).min(1).max(12),
-  mechanism: z.string().min(1).max(500),
-  objects: z.array(z.object({ id: ObjectId, role: z.string().min(1).max(200) })).max(12),
-  framing: z.string().min(1).max(400),
+  mechanism: z.string().min(1).max(500).describe("At most 500 characters."),
+  objects: z.array(z.object({ id: ObjectId, role: z.string().min(1).max(200).describe("At most 200 characters.") })).max(12),
+  framing: z.string().min(1).max(400).describe("At most 400 characters."),
   /** How this sequence starts relative to the previous one: continuous, or a planned cut with its purpose. */
-  transitionIn: z.string().min(1).max(300),
-  keyCues: z.array(z.string().min(1).max(80)).max(12),
+  transitionIn: z.string().min(1).max(300).describe("At most 300 characters."),
+  keyCues: z.array(z.string().min(1).max(80).describe("At most 80 characters.")).max(12),
 });
 export type DirectedSequence = z.infer<typeof DirectedSequence>;
 
 export const SequenceDirection = z.object({
-  styleNotes: z.string().min(1).max(600),
-  palette: z.array(z.object({ name: ColorName, hex: z.string().regex(/^#[0-9a-fA-F]{6}$/) })).min(2).max(16),
+  styleNotes: z.string().min(1).max(600).describe("At most 600 characters."),
+  palette: z.array(z.object({ name: ColorName, hex: z.string().regex(/^#[0-9a-fA-F]{6}$/).describe("#rrggbb") })).min(2).max(16).describe("2 to 16 colors."),
   sequences: z.array(DirectedSequence).min(1).max(12),
   /** The sequence that defines the mechanism; authored first. */
   mechanismSequenceId: SequenceId,
@@ -58,19 +58,25 @@ export const PoseEntry = z.object({
 });
 export type PoseEntry = z.infer<typeof PoseEntry>;
 
+// Strict structured-output schemas drop length and range keywords, so each
+// limit is also stated in a description the model sees.
 export const SequenceAuthorDraft = z.object({
-  description: z.string().min(1).max(300),
+  description: z.string().min(1).max(300).describe("One sentence for editors, at most 300 characters."),
   cues: z.array(z.object({
-    name: CueBinding.shape.name,
-    word: z.number().int().nonnegative(),
+    name: CueBinding.shape.name.describe("camelCase identifier starting with a lowercase letter, at most 32 characters."),
+    word: z.number().int().nonnegative().describe("Global narration word index."),
     edge: z.enum(["start", "end"]),
-    offsetFrames: z.number().int().min(-MAX_CUE_OFFSET_FRAMES).max(MAX_CUE_OFFSET_FRAMES),
-  })).min(1).max(32),
-  poses: z.object({ start: z.array(PoseEntry).min(1).max(24), end: z.array(PoseEntry).min(1).max(24) }),
+    offsetFrames: z.number().int().min(-MAX_CUE_OFFSET_FRAMES).max(MAX_CUE_OFFSET_FRAMES)
+      .describe(`Integer from -${MAX_CUE_OFFSET_FRAMES} to ${MAX_CUE_OFFSET_FRAMES}.`),
+  })).min(1).max(32).describe("1 to 32 cues."),
+  poses: z.object({
+    start: z.array(PoseEntry).min(1).max(24).describe("1 to 24 objects visible at the first frame."),
+    end: z.array(PoseEntry).min(1).max(24).describe("1 to 24 objects visible at the last frame."),
+  }),
   /** Complete TSX module: imports only from "react" and "@vcp/motion", one default export. */
-  source: z.string().min(1).max(MAX_SEQUENCE_SOURCE_BYTES),
+  source: z.string().min(1).max(MAX_SEQUENCE_SOURCE_BYTES).describe(`Complete TSX module, at most ${MAX_SEQUENCE_SOURCE_BYTES} characters.`),
   /** What changed from the previous attempt and why; empty on the first attempt. */
-  revisionNotes: z.string().max(1200),
+  revisionNotes: z.string().max(1200).describe("At most 1200 characters; empty on the first attempt."),
 });
 export type SequenceAuthorDraft = z.infer<typeof SequenceAuthorDraft>;
 
@@ -100,15 +106,15 @@ export const CritiqueFinding = z.object({
   criterion: z.enum(CRITIQUE_CRITERIA),
   /** Global composition frame the observation refers to. */
   frame: z.number().int().nonnegative(),
-  observed: z.string().min(1).max(500),
-  change: z.string().max(500),
+  observed: z.string().min(1).max(500).describe("At most 500 characters."),
+  change: z.string().max(500).describe("At most 500 characters."),
   verdict: z.enum(["pass", "revise"]),
 });
 export type CritiqueFinding = z.infer<typeof CritiqueFinding>;
 
 export const SequenceCritique = z.object({
-  findings: z.array(CritiqueFinding).min(CRITIQUE_CRITERIA.length).max(24),
-  summary: z.string().min(1).max(800),
+  findings: z.array(CritiqueFinding).min(CRITIQUE_CRITERIA.length).max(24).describe("At least one finding per criterion, at most 24 in all."),
+  summary: z.string().min(1).max(800).describe("At most 800 characters."),
 });
 export type SequenceCritique = z.infer<typeof SequenceCritique>;
 

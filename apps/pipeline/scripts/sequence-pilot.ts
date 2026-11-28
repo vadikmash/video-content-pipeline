@@ -40,6 +40,10 @@ const text: typeof model = {
       console.log(JSON.stringify({ usage: { ...u, step: prompt.context?.step }, at: new Date().toISOString() }));
       prompt.onUsage?.(u);
     },
+    onInvalidOutput: (issues, repair) => {
+      console.log(JSON.stringify({ invalidOutput: { step: prompt.context?.step, repair, issues: issues.slice(0, 2000) }, at: new Date().toISOString() }));
+      prompt.onInvalidOutput?.(issues, repair);
+    },
   }),
 };
 const renderer = createRemotionRenderer(blob, { concurrency: 2, sequenceWorker: createDockerSequenceWorker(), timeoutMs: 30 * 60_000 });

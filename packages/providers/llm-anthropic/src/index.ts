@@ -44,7 +44,7 @@ export function create(ctx: ProviderContext): TextModel {
       const { system, user } = promptText(prompt);
       return parseWithOneRetry(schema, user, (message, repair) =>
         complete(client!, model, effort, jsonSchema, system, userContent(prompt, message), maxTokens(prompt), prompt, repair),
-      );
+      prompt.onInvalidOutput);
     },
   };
 }
