@@ -42,6 +42,7 @@ import { TOOLKIT_VERSION } from "@vcp/renderer/motion-version";
 
 export const SEQUENCE_PROMPT_VERSION = 1;
 export const MAX_SEQUENCE_REVISIONS = 2;
+export const AUTHOR_MAX_OUTPUT_TOKENS = 64_000;
 export const MAX_CRITIQUE_FRAMES = 18;
 
 export interface SequenceScript {
@@ -249,13 +250,15 @@ ${previous.draft.source}
     : "";
   return {
     kind: "animation" as const,
+    // High-effort reasoning plus a full TSX module overran 32K on the first real run.
+    maxOutputTokens: AUTHOR_MAX_OUTPUT_TOKENS,
     system: AUTHOR_SYSTEM,
     user: `Author sequence "${sequence.sequenceId}" covering beats ${span.beatIds.join(", ")}.
 It plays for ${span.endFrame - span.startFrame} frames at ${input.fps} fps (global frames ${span.startFrame}-${span.endFrame - 1}); local frame 0 is global frame ${span.startFrame}.
 
 Return
 - cues: bind each motion beat to a narration word by its global index i and edge (start/end), with an optional offset of -30..30 frames for anticipation or follow-through. Cue frames must land inside the sequence. Read them in the module with cueFrame(cues, name).
-- poses: the start and end pose of each persistent object (design coordinates of its key geometry). Neighbouring sequences use them to join.
+- poses: the start and end pose of each object visible at that edge (design coordinates of its key geometry; width, height and scale above 0). Leave out an object that is absent at an edge. Neighbouring sequences use them to join.
 - source: the complete module.
 - description: one sentence for editors.
 
@@ -517,7 +520,7 @@ async function runAttempt(
       narration: { id: input.narration.id, words: input.narration.words },
       fps: input.fps,
       cues: draft.cues,
-      poses: { start: poseSet(draft.poses.start), end: poseSet(draft.poses.end) },
+      poses: { start: poseSet(draft.poses.start, "start"), end: poseSet(draft.poses.end, "end") },
       style: {
         id: `${sequence.sequenceId}-style`,
         palette: Object.fromEntries(direction.palette.map((color) => [color.name, color.hex])),

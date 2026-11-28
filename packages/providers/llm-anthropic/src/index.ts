@@ -43,10 +43,16 @@ export function create(ctx: ProviderContext): TextModel {
       const jsonSchema = strictJsonSchema(schema);
       const { system, user } = promptText(prompt);
       return parseWithOneRetry(schema, user, (message, repair) =>
-        complete(client!, model, effort, jsonSchema, system, userContent(prompt, message), prompt.kind === "animation" ? 32000 : 16000, prompt, repair),
+        complete(client!, model, effort, jsonSchema, system, userContent(prompt, message), maxTokens(prompt), prompt, repair),
       );
     },
   };
+}
+
+/** Current Claude models cap output (thinking included) at 128K; long outputs stream. */
+const MAX_OUTPUT_TOKENS = 128_000;
+export function maxTokens(prompt: Pick<Prompt, "kind" | "maxOutputTokens">): number {
+  return Math.min(MAX_OUTPUT_TOKENS, prompt.maxOutputTokens ?? (prompt.kind === "animation" ? 32000 : 16000));
 }
 
 /** Every current Claude model accepts images; only the retired 2.x/instant models did not. */
@@ -95,7 +101,8 @@ async function complete(
       : await client.beta.messages.create(request, options);
   } catch (err) {
     if (err instanceof Anthropic.APIError) {
-      throw new ProviderError(`llm-anthropic: ${err.status ?? "network"} ${err.message}`, err.status);
+      const status = err.status ?? streamedErrorStatus(err);
+      throw new ProviderError(`llm-anthropic: ${status ?? "network"} ${err.message}`, status);
     }
     throw err;
   }
@@ -124,6 +131,28 @@ async function complete(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * An error event inside a stream arrives without an HTTP status. Map its type
+ * so a billing, auth or request error stays permanent instead of looking like
+ * a network failure.
+ */
+const STREAMED_ERROR_STATUS: Record<string, number> = {
+  invalid_request_error: 400,
+  authentication_error: 401,
+  billing_error: 402,
+  permission_error: 403,
+  not_found_error: 404,
+  request_too_large: 413,
+  rate_limit_error: 429,
+  api_error: 500,
+  overloaded_error: 529,
+};
+export function streamedErrorStatus(err: { error?: unknown; message?: string }): number | undefined {
+  const body = err.error as { error?: { type?: unknown }; type?: unknown } | undefined;
+  const type = body?.error?.type ?? body?.type ?? /"type":"([a-z_]+_error|request_too_large)"/.exec(err.message ?? "")?.[1];
+  return typeof type === "string" ? STREAMED_ERROR_STATUS[type] : undefined;
 }
 
 function stringOpt(value: unknown): string | undefined {

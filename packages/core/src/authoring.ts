@@ -74,11 +74,21 @@ export const SequenceAuthorDraft = z.object({
 });
 export type SequenceAuthorDraft = z.infer<typeof SequenceAuthorDraft>;
 
-export function poseSet(entries: readonly PoseEntry[]): PoseSet {
+/**
+ * An all-zero size means "not on screen at this edge" (the first real draft
+ * wrote absent objects that way); such entries are left out. Any other invalid
+ * pose names its object so the author can fix it.
+ */
+export function poseSet(entries: readonly PoseEntry[], edge = "pose"): PoseSet {
   const out: PoseSet = {};
   for (const { id, ...pose } of entries) {
-    if (out[id]) throw new Error(`Pose for ${id} appears twice`);
-    out[id] = ObjectPose.parse(pose);
+    if (out[id]) throw new Error(`${edge} pose for ${id} appears twice`);
+    if (pose.width === 0 && pose.height === 0 && pose.scale === 0) continue;
+    const parsed = ObjectPose.safeParse(pose);
+    if (!parsed.success) {
+      throw new Error(`${edge} pose for ${id}: ${parsed.error.issues.map((issue) => `${issue.path.join(".")} ${issue.message}`).join("; ")}`);
+    }
+    out[id] = parsed.data;
   }
   return out;
 }

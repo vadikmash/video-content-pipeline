@@ -59,6 +59,8 @@ export interface Prompt {
   /** Called once per provider response; `generate` still returns only the parsed value. */
   onUsage?: (usage: PromptUsage) => void;
   signal?: AbortSignal;
+  /** Output-token cap including reasoning, for steps whose output is long (authored source). Adapters clamp to the model's limit. */
+  maxOutputTokens?: number;
 }
 
 export interface Voice {

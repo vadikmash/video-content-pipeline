@@ -137,6 +137,12 @@ importers:
       '@vcp/provider-fake-render':
         specifier: workspace:*
         version: link:../../packages/providers/fake-render
+      '@vcp/provider-llm-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/providers/llm-anthropic
+      '@vcp/provider-render-remotion':
+        specifier: workspace:*
+        version: link:../../packages/providers/render-remotion
       concurrently:
         specifier: ^10.0.6
         version: 10.0.6

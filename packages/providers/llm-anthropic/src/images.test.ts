@@ -52,3 +52,23 @@ describe("llm-anthropic image prompts", () => {
     expect(requests).toHaveLength(0);
   });
 });
+
+describe("maxTokens", () => {
+  it("lets a prompt raise its output cap up to the model limit", async () => {
+    const { maxTokens } = await import("./index");
+    expect(maxTokens({ kind: "script" })).toBe(16000);
+    expect(maxTokens({ kind: "animation" })).toBe(32000);
+    expect(maxTokens({ kind: "animation", maxOutputTokens: 64000 })).toBe(64000);
+    expect(maxTokens({ kind: "animation", maxOutputTokens: 500_000 })).toBe(128_000);
+  });
+});
+
+describe("streamedErrorStatus", () => {
+  it("keeps an error event from a stream permanent", async () => {
+    const { streamedErrorStatus } = await import("./index");
+    const billing = '{"type":"error","error":{"details":null,"type":"invalid_request_error","message":"Your credit balance is too low"}}';
+    expect(streamedErrorStatus({ message: billing })).toBe(400);
+    expect(streamedErrorStatus({ error: { type: "error", error: { type: "overloaded_error" } } })).toBe(529);
+    expect(streamedErrorStatus({ message: "socket hang up" })).toBeUndefined();
+  });
+});
