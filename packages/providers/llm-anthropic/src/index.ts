@@ -5,6 +5,8 @@ import {
   parseWithOneRetry,
   promptText,
   strictJsonSchema,
+  validatePromptImages,
+  type Prompt,
   type ProviderContext,
   type TextModel,
 } from "@vcp/core";
@@ -33,16 +35,35 @@ export function create(ctx: ProviderContext): TextModel {
   let client: Anthropic | undefined;
   return {
     id: manifest.id,
+    capabilities: { images: supportsImages(model), model },
     async generate(schema, prompt) {
       if (!apiKey) throw new ProviderError("ANTHROPIC_API_KEY is not set", undefined, false);
+      validatePromptImages(manifest.id, prompt.images, supportsImages(model));
       client ??= new Anthropic({ apiKey });
       const jsonSchema = strictJsonSchema(schema);
       const { system, user } = promptText(prompt);
-      return parseWithOneRetry(schema, user, (message) =>
-        complete(client!, model, effort, jsonSchema, system, message, prompt.kind === "animation" ? 32000 : 16000),
+      return parseWithOneRetry(schema, user, (message, repair) =>
+        complete(client!, model, effort, jsonSchema, system, userContent(prompt, message), prompt.kind === "animation" ? 32000 : 16000, prompt, repair),
       );
     },
   };
+}
+
+/** Every current Claude model accepts images; only the retired 2.x/instant models did not. */
+export function supportsImages(model: string): boolean {
+  return !/^claude-(instant|2)/.test(model);
+}
+
+/** Image blocks (each after its label) before the instruction text. */
+export function userContent(prompt: Pick<Prompt, "images">, text: string): string | Anthropic.Beta.BetaContentBlockParam[] {
+  if (!prompt.images?.length) return text;
+  const blocks: Anthropic.Beta.BetaContentBlockParam[] = [];
+  for (const image of prompt.images) {
+    if (image.label) blocks.push({ type: "text", text: image.label });
+    blocks.push({ type: "image", source: { type: "base64", media_type: image.mediaType, data: Buffer.from(image.data).toString("base64") } });
+  }
+  blocks.push({ type: "text", text });
+  return blocks;
 }
 
 async function complete(
@@ -51,8 +72,10 @@ async function complete(
   effort: Effort,
   schema: Record<string, unknown>,
   system: string,
-  user: string,
+  user: string | Anthropic.Beta.BetaContentBlockParam[],
   maxTokens: number,
+  prompt: Pick<Prompt, "onUsage" | "signal">,
+  repair: number,
 ): Promise<unknown> {
   let response: Anthropic.Beta.BetaMessage;
   try {
@@ -66,15 +89,26 @@ async function complete(
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default" as const,
     };
+    const options = { signal: prompt.signal };
     response = maxTokens > 16000
-      ? await client.beta.messages.stream(request).finalMessage()
-      : await client.beta.messages.create(request);
+      ? await client.beta.messages.stream(request, options).finalMessage()
+      : await client.beta.messages.create(request, options);
   } catch (err) {
     if (err instanceof Anthropic.APIError) {
       throw new ProviderError(`llm-anthropic: ${err.status ?? "network"} ${err.message}`, err.status);
     }
     throw err;
   }
+  prompt.onUsage?.({
+    provider: manifest.id,
+    model: response.model,
+    requestId: (response as { _request_id?: string | null })._request_id ?? undefined,
+    repair,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+    cacheReadTokens: response.usage.cache_read_input_tokens ?? undefined,
+    cacheWriteTokens: response.usage.cache_creation_input_tokens ?? undefined,
+  });
   if (response.stop_reason === "refusal") {
     const category = response.stop_details?.category ?? "unspecified";
     throw new ProviderError(`llm-anthropic: refused (${category})`, undefined, false);

@@ -5,7 +5,7 @@
  */
 import React from "react";
 
-export const TOOLKIT_VERSION = "1.0.0";
+export { TOOLKIT_VERSION } from "./version";
 export const DESIGN = { width: 1080, height: 1920 } as const;
 
 export { ease, tween, settle, anticipate, cueFrame, type Ease, type Key } from "./timing";

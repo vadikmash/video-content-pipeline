@@ -124,3 +124,13 @@ describe("resolveSequences", () => {
     expect([...blob.data.keys()].some((key) => key.includes("/intermediates/"))).toBe(false);
   });
 });
+
+describe("preview range", () => {
+  it("accepts a half-open range inside the composition and stills inside it", async () => {
+    const { assertPreviewRange } = await import("../src/index");
+    expect(() => assertPreviewRange(384, 716, [384, 607, 715], 1173)).not.toThrow();
+    expect(() => assertPreviewRange(384, 716, [716], 1173)).toThrow(/outside \[384, 716\)/);
+    expect(() => assertPreviewRange(700, 1174, [], 1173)).toThrow(/outside the composition/);
+    expect(() => assertPreviewRange(10, 10, [], 1173)).toThrow();
+  });
+});

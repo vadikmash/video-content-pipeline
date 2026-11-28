@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { preflight } from "../src/preflight";
+import { EXAMPLE_SEQUENCE } from "../src/reference";
 import { FrameDecoder, MAGIC, encodeHeader } from "../src/protocol";
 
 const fixture = readFileSync(new URL("../../../fixtures/animation/popcorn-kernel.tsx", import.meta.url), "utf8");
@@ -14,6 +15,10 @@ const messages = (source: string) => {
 describe("preflight", () => {
   it("accepts the trusted hand-authored fixture", () => {
     expect(preflight(fixture)).toEqual({ ok: true });
+  });
+
+  it("accepts the example shown to the author", () => {
+    expect(preflight(EXAMPLE_SEQUENCE)).toEqual({ ok: true });
   });
 
   it.each([

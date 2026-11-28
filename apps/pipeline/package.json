@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@vcp/animation-worker": "workspace:*",
     "@vcp/core": "workspace:*",
     "@vcp/db": "workspace:*",
     "@vcp/limits": "workspace:*",
@@ -28,6 +29,7 @@
     "@remotion/cli": "4.0.540",
     "@vcp/provider-fake-publish": "workspace:*",
     "@vcp/provider-blob-local": "workspace:*",
+    "@vcp/provider-fake-render": "workspace:*",
     "concurrently": "^10.0.6",
     "inngest-cli": "^1.49.0",
     "tsx": "^4.23.15",

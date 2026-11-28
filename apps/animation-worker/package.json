@@ -6,7 +6,8 @@
   "exports": {
     "./preflight": "./src/preflight.ts",
     "./protocol": "./src/protocol.ts",
-    "./job": "./src/job.ts"
+    "./job": "./src/job.ts",
+    "./reference": "./src/reference.ts"
   },
   "scripts": {
     "test": "vitest run",

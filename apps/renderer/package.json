@@ -6,7 +6,8 @@
   "exports": {
     "./props": "./src/props.ts",
     "./entry": "./src/index.ts",
-    "./motion": "./src/motion/index.tsx"
+    "./motion": "./src/motion/index.tsx",
+    "./motion-version": "./src/motion/version.ts"
   },
   "scripts": {
     "studio": "remotion studio src/index.ts",

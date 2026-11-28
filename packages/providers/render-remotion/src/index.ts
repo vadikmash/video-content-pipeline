@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
-import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import { makeCancelSignal, openBrowser, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import {
   compositionDurationFrames,
   compositionDurationSec,
@@ -15,8 +15,11 @@ import {
   type BlobRef,
   type BlobStore,
   type ProviderContext,
+  type Preview,
+  type PreviewFrame,
   type Render,
   type RenderInput,
+  type RenderProfile,
   type Renderer,
 } from "@vcp/core";
 import { FPS, HEIGHT, TEMPLATE_ID, TEMPLATE_VERSION, WIDTH, type FactShortProps } from "@vcp/renderer/props";
@@ -163,44 +166,71 @@ async function sequenceProp(
 // Renderer
 // ---------------------------------------------------------------------------
 
-export function createRemotionRenderer(
-  blob: BlobStore,
-  options: { concurrency?: number; sequenceWorker?: SequenceWorker; /** Remotion delayRender timeout; default 30s. */ timeoutMs?: number } = {},
-): Renderer {
+export interface RemotionRendererOptions {
+  concurrency?: number;
+  sequenceWorker?: SequenceWorker;
+  /** Remotion delayRender timeout; default 30s. */
+  timeoutMs?: number;
+}
+
+const PREVIEW_SCALE: Record<RenderProfile, number> = { draft: 0.5, full: 1 };
+
+/** Everything final renders and previews share: bundle, asset URLs, sequences, props and composition. */
+async function prepare(blob: BlobStore, input: RenderInput, profile: RenderProfile, options: RemotionRendererOptions, signal?: AbortSignal) {
+  const serveUrl = await getBundle();
+  // Local blob stores get a loopback static server so Chromium can fetch assets.
+  const localDir = blob.localRoot?.();
+  const server = localDir ? await startStaticServer(localDir) : undefined;
+  try {
+    const urlFor = async (ref: BlobRef) =>
+      server ? `${server.baseUrl}/${ref.key.split("/").map(encodeURIComponent).join("/")}` : blob.url(ref);
+    // Remotion caches its headless Chrome under <cwd>/node_modules/.remotion; allow pinning one copy.
+    const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || null;
+    const bed = resolveMusicBed();
+    const musicUrl = bed
+      ? await urlFor(await blob.put("templates/fact-short/bed.mp3", new Uint8Array(await readFile(bed)), "audio/mpeg"))
+      : undefined;
+    const durationSec = compositionDurationSec(input.narration.durationSec, input.storyboard.scenes.map((s) => s.end));
+    const sequences = input.storyboard.scenes.some((scene) => scene.visual.kind === "animationSequence")
+      ? await resolveSequences(input, blob, options.sequenceWorker ?? createDockerSequenceWorker(), {
+        fps: FPS,
+        durationFrames: compositionDurationFrames(durationSec, FPS),
+        profile,
+        captionPositions: Object.fromEntries(input.storyboard.scenes.map((scene) => [
+          scene.beatId,
+          scene.captionPosition?.startsWith("top") ? "top" as const : "bottom" as const,
+        ])),
+        signal,
+      })
+      : new Map();
+    const inputProps = await toFactShortProps(input, urlFor, musicUrl, sequences);
+    const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps, browserExecutable, timeoutInMilliseconds: options.timeoutMs });
+    return { serveUrl, server, inputProps, composition, browserExecutable };
+  } catch (error) {
+    await server?.close();
+    throw error;
+  }
+}
+
+function cancelFrom(signal?: AbortSignal) {
+  if (!signal) return undefined;
+  const { cancelSignal, cancel } = makeCancelSignal();
+  if (signal.aborted) cancel();
+  else signal.addEventListener("abort", cancel, { once: true });
+  return cancelSignal;
+}
+
+export function createRemotionRenderer(blob: BlobStore, options: RemotionRendererOptions = {}): Renderer {
   return {
     id: manifest.id,
     async render(input) {
-      const serveUrl = await getBundle();
-
-      // Local blob stores get a loopback static server so Chromium can fetch assets.
-      const localDir = blob.localRoot?.();
-      const server = localDir ? await startStaticServer(localDir) : undefined;
-      const urlFor = async (ref: BlobRef) =>
-        server ? `${server.baseUrl}/${ref.key.split("/").map(encodeURIComponent).join("/")}` : blob.url(ref);
-
       const tmp = await mkdtemp(path.join(os.tmpdir(), "vcp-render-"));
-      // Remotion caches its headless Chrome under <cwd>/node_modules/.remotion; allow pinning one copy.
-      const browserExecutable = process.env.REMOTION_BROWSER_EXECUTABLE || null;
+      const prepared = await prepare(blob, input, "full", options).catch(async (error) => {
+        await rm(tmp, { recursive: true, force: true });
+        throw error;
+      });
+      const { serveUrl, server, inputProps, composition, browserExecutable } = prepared;
       try {
-        const bed = resolveMusicBed();
-        const musicUrl = bed
-          ? await urlFor(await blob.put("templates/fact-short/bed.mp3", new Uint8Array(await readFile(bed)), "audio/mpeg"))
-          : undefined;
-        const durationSec = compositionDurationSec(input.narration.durationSec, input.storyboard.scenes.map((s) => s.end));
-        const sequences = input.storyboard.scenes.some((scene) => scene.visual.kind === "animationSequence")
-          ? await resolveSequences(input, blob, options.sequenceWorker ?? createDockerSequenceWorker(), {
-            fps: FPS,
-            durationFrames: compositionDurationFrames(durationSec, FPS),
-            profile: "full",
-            captionPositions: Object.fromEntries(input.storyboard.scenes.map((scene) => [
-              scene.beatId,
-              scene.captionPosition?.startsWith("top") ? "top" as const : "bottom" as const,
-            ])),
-          })
-          : new Map();
-        const inputProps = await toFactShortProps(input, urlFor, musicUrl, sequences);
-        const composition = await selectComposition({ serveUrl, id: COMPOSITION_ID, inputProps, browserExecutable, timeoutInMilliseconds: options.timeoutMs });
-
         const outVideo = path.join(tmp, "out.mp4");
         await renderMedia({
           composition,
@@ -252,7 +282,91 @@ export function createRemotionRenderer(
         await rm(tmp, { recursive: true, force: true });
       }
     },
+
+    async preview(input, previewOptions) {
+      const { profile, startFrame, endFrame, signal } = previewOptions;
+      const frames = [...new Set(previewOptions.frames ?? [])].sort((a, b) => a - b);
+      const tmp = await mkdtemp(path.join(os.tmpdir(), "vcp-preview-"));
+      const prepared = await prepare(blob, input, profile, options, signal).catch(async (error) => {
+        await rm(tmp, { recursive: true, force: true });
+        throw error;
+      });
+      const { serveUrl, server, inputProps, composition, browserExecutable } = prepared;
+      const browser = await openBrowser("chrome", { browserExecutable, chromiumOptions: { gl: "angle" } });
+      try {
+        assertPreviewRange(startFrame, endFrame, frames, composition.durationInFrames);
+        const scale = PREVIEW_SCALE[profile];
+        const cancelSignal = cancelFrom(signal);
+        const outVideo = path.join(tmp, "excerpt.mp4");
+        // The full timeline is cropped, so voice, captions and music stay aligned with the final.
+        await renderMedia({
+          composition,
+          serveUrl,
+          codec: "h264",
+          outputLocation: outVideo,
+          inputProps,
+          frameRange: [startFrame, endFrame - 1],
+          scale,
+          concurrency: options.concurrency ?? 2,
+          chromiumOptions: { gl: "angle" },
+          browserExecutable,
+          puppeteerInstance: browser,
+          cancelSignal,
+          timeoutInMilliseconds: options.timeoutMs,
+        });
+        const id = newId();
+        const base = `projects/${input.projectId}/previews/${id}`;
+        const video = await blob.put(`${base}/excerpt-${profile}.mp4`, new Uint8Array(await readFile(outVideo)), "video/mp4");
+        const stills: PreviewFrame[] = [];
+        for (const frame of frames) {
+          const out = path.join(tmp, `frame-${frame}.jpeg`);
+          await renderStill({
+            composition,
+            serveUrl,
+            output: out,
+            inputProps,
+            frame,
+            scale,
+            imageFormat: "jpeg",
+            jpegQuality: 85,
+            browserExecutable,
+            puppeteerInstance: browser,
+            cancelSignal,
+            timeoutInMilliseconds: options.timeoutMs,
+          });
+          const ref = await blob.put(`${base}/frame-${String(frame).padStart(6, "0")}.jpg`, new Uint8Array(await readFile(out)), "image/jpeg");
+          stills.push({ frame, timeSec: frame / composition.fps, blob: ref });
+        }
+        const preview: Preview = {
+          id,
+          projectId: input.projectId,
+          profile,
+          startFrame,
+          endFrame,
+          width: Math.round(WIDTH * scale),
+          height: Math.round(HEIGHT * scale),
+          fps: FPS,
+          video,
+          frames: stills,
+          provider: manifest.id,
+          createdAt: nowIso(),
+        };
+        return preview;
+      } finally {
+        await browser.close({ silent: true }).catch(() => undefined);
+        await server?.close();
+        await rm(tmp, { recursive: true, force: true });
+      }
+    },
   };
+}
+
+export function assertPreviewRange(startFrame: number, endFrame: number, frames: readonly number[], durationInFrames: number): void {
+  if (!Number.isInteger(startFrame) || !Number.isInteger(endFrame) || startFrame < 0 || endFrame <= startFrame || endFrame > durationInFrames) {
+    throw new Error(`Preview range [${startFrame}, ${endFrame}) is outside the composition (${durationInFrames} frames)`);
+  }
+  const outside = frames.find((frame) => !Number.isInteger(frame) || frame < startFrame || frame >= endFrame);
+  if (outside !== undefined) throw new Error(`Preview still ${outside} is outside [${startFrame}, ${endFrame})`);
 }
 
 export function create(ctx: ProviderContext): Renderer {
