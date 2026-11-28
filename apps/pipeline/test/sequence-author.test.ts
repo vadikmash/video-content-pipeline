@@ -20,6 +20,8 @@ import { create as createFakeRenderer } from "@vcp/provider-fake-render";
 import {
   authorSequence,
   critiqueFrames,
+  MAX_CRITIQUE_FRAMES,
+  MAX_CRITIQUE_GAP,
   directSequences,
   plannedSpan,
   type SequenceAuthoringDeps,
@@ -150,11 +152,22 @@ describe("sequence authoring loop", () => {
   it("samples cue onsets, follow-through and beat boundaries within bounds", () => {
     const span = plannedSpan(input(), direction.sequences[1]!);
     const frames = critiqueFrames(span, fixture.pilot.cues);
-    expect(frames.length).toBeLessThanOrEqual(18);
+    expect(frames.length).toBeLessThanOrEqual(MAX_CRITIQUE_FRAMES);
     const list = frames.map((f) => f.frame);
+    // No unseen stretch longer than the gap limit (the a1 critic missed a 613-662 hold).
+    for (let i = 1; i < list.length; i++) expect(list[i]! - list[i - 1]!).toBeLessThanOrEqual(MAX_CRITIQUE_GAP);
+    expect(list.some((f) => f > 613 && f < 662)).toBe(true);
     expect(list).toEqual([...list].sort((a, b) => a - b));
     for (const frame of [384, 715, 405, 607, 662, 476, 477, 573, 574]) expect(list).toContain(frame);
     expect(frames.find((f) => f.frame === 607)?.label).toContain("cue ruptures");
+  });
+
+  it("keeps required frames when the budget is tiny", () => {
+    const span = plannedSpan(input(), direction.sequences[1]!);
+    const frames = critiqueFrames(span, fixture.pilot.cues, 6).map((f) => f.frame);
+    expect(frames.length).toBeLessThanOrEqual(8);
+    expect(frames).toContain(384);
+    expect(frames).toContain(715);
   });
 
   it("revises on critique findings, shows the critic frames, and accepts", async () => {

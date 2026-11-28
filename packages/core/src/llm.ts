@@ -93,7 +93,8 @@ export async function parseWithOneRetry<T>(
 }
 
 /** Provider-independent bounds for image prompts (Anthropic allows 5 MB base64 per image). */
-export const MAX_PROMPT_IMAGES = 20;
+/** The API accepts up to 100 per request (2000 px per side above 20); critique sends at most 28. */
+export const MAX_PROMPT_IMAGES = 32;
 export const MAX_PROMPT_IMAGE_BYTES = 3_500_000;
 
 /**

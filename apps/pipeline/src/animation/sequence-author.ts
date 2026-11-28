@@ -40,10 +40,13 @@ import { EXAMPLE_SEQUENCE, REFERENCE_VERSION, TOOLKIT_REFERENCE } from "@vcp/ani
 import { CAPTION_LAYOUT } from "@vcp/renderer/props";
 import { TOOLKIT_VERSION } from "@vcp/renderer/motion-version";
 
-export const SEQUENCE_PROMPT_VERSION = 1;
+// 2: schema limits as descriptions, absent-pose rule, gap-covering critique frames.
+export const SEQUENCE_PROMPT_VERSION = 2;
 export const MAX_SEQUENCE_REVISIONS = 2;
 export const AUTHOR_MAX_OUTPUT_TOKENS = 64_000;
-export const MAX_CRITIQUE_FRAMES = 18;
+export const MAX_CRITIQUE_FRAMES = 28;
+/** Longest stretch, in frames (0.8 s at 30 fps), the critic may go without a sample. */
+export const MAX_CRITIQUE_GAP = 24;
 
 export interface SequenceScript {
   hook: string;
@@ -302,14 +305,14 @@ export function critiquePrompt({ input, sequence, span, manifest, frames, previo
     kind: "animation" as const,
     system: CRITIC_SYSTEM,
     user: `The images are draft frames (540x960, captions drawn by the template) from sequence "${sequence.sequenceId}", global frames ${span.startFrame}-${span.endFrame - 1}, in time order. Each is labelled with its global frame, time, beat and the cue it samples.
-They sample cue onsets, follow-through a few frames later and both sides of each internal beat boundary. Judge motion from what changes between consecutive frames.
+They sample cue onsets, both sides of each internal beat boundary, points in between so that no stretch longer than ${(MAX_CRITIQUE_GAP / input.fps).toFixed(1)}s goes unseen, and follow-through a few frames after cues. Judge motion from what changes between consecutive frames; a run of samples where nothing changes is a hold, which needs a purpose.
 
 Give one finding per criterion at least (more where useful), each with the exact global frame it refers to, what you observe, the concrete change you want (empty when it passes), and pass or revise:
 - mechanism: with captions ignored, the physical steps in the plan are distinguishable in order, and each happens at its cue.
 - art: the subject reads as itself at phone size; materials stay distinguishable by shape and position; clear silhouette and depth; framing directs attention to the active material.
 - continuity: geometry, material identities and developing state carry across the beat boundaries; no blank frames, reset poses or accidental jumps.
 - motion: build-up accumulates over time, the main action is visibly faster, there is an identifiable origin, and follow-through settles; camera moves keep the point of interest.
-- delivery: captions are legible and do not cover key geometry; nothing is cropped or off-canvas that matters.
+- delivery: captions are legible and do not cover key geometry; nothing is cropped or off-canvas that matters. The template times captions to the spoken words, which can start after a beat boundary; do not judge caption timing or wording.
 Pass a criterion only when the frames show it. Do not ask for facts beyond the claims.`,
     context: {
       step: "critique",
@@ -330,8 +333,9 @@ Pass a criterion only when the frames show it. Do not ask for facts beyond the c
 /** Cue onsets, follow-through, beat boundaries and the ends, bounded and in order. */
 export function critiqueFrames(span: SequenceSpan, cues: readonly { name: string; frame: number }[], max = MAX_CRITIQUE_FRAMES) {
   const labels = new Map<number, string[]>();
+  const inSpan = (frame: number) => frame >= span.startFrame && frame < span.endFrame;
   const add = (frame: number, label: string) => {
-    if (frame < span.startFrame || frame >= span.endFrame) return;
+    if (!inSpan(frame)) return;
     labels.set(frame, [...(labels.get(frame) ?? []), label]);
   };
   add(span.startFrame, "sequence start");
@@ -340,20 +344,33 @@ export function critiqueFrames(span: SequenceSpan, cues: readonly { name: string
     add(beat.start - 1, `before ${beat.beatId}`);
     add(beat.start, `${beat.beatId} starts`);
   }
-  for (const cue of cues) {
-    add(cue.frame, `cue ${cue.name}`);
-    add(cue.frame + 6, `${cue.name} +6`);
-  }
-  let frames = [...labels.keys()].sort((a, b) => a - b);
-  // Thin follow-through frames first, keeping cues, boundaries and the ends.
-  while (frames.length > max) {
-    const drop = frames.findLast((frame) => labels.get(frame)!.every((label) => label.endsWith("+6")));
-    if (drop === undefined) {
-      frames = frames.filter((_, index) => index % 2 === 0 || index === frames.length - 1);
-      break;
+  for (const cue of cues) add(cue.frame, `cue ${cue.name}`);
+  const sorted = () => [...labels.keys()].sort((a, b) => a - b);
+
+  // Coverage: the pilot's first critic never saw a 1.3 s dead hold between two
+  // cues 49 frames apart. Split the widest gap until none exceeds MAX_CRITIQUE_GAP.
+  for (;;) {
+    const frames = sorted();
+    if (frames.length >= max) break;
+    let widest = 0;
+    let at = -1;
+    for (let i = 1; i < frames.length; i++) {
+      const gap = frames[i]! - frames[i - 1]!;
+      if (gap > widest) [widest, at] = [gap, i];
     }
-    frames = frames.filter((frame) => frame !== drop);
+    if (widest <= MAX_CRITIQUE_GAP) break;
+    add(Math.round((frames[at - 1]! + frames[at]!) / 2), "between");
   }
+  // Follow-through after each cue, where it is not already near a sampled frame.
+  for (const cue of cues) {
+    const frame = cue.frame + 6;
+    if (labels.size >= max) break;
+    if (inSpan(frame) && !sorted().some((f) => Math.abs(f - frame) < 3)) add(frame, `${cue.name} +6`);
+  }
+
+  let frames = sorted();
+  // Over budget only when required frames alone exceed it: keep every other one, plus the end.
+  if (frames.length > max) frames = frames.filter((_, index) => index % 2 === 0 || index === frames.length - 1);
   return frames.map((frame) => ({ frame, label: labels.get(frame)!.join(", ") }));
 }
 
@@ -470,6 +487,23 @@ async function timed<T>(elapsed: Partial<Record<AuthoringStep, number>>, step: A
   }
 }
 
+/** Labelled JPEG stills for the critic, in the order the preview returned them. */
+export async function critiqueImages(
+  blob: BlobStore,
+  span: SequenceSpan,
+  fps: number,
+  sampled: readonly { frame: number; label: string }[],
+  preview: Preview,
+): Promise<{ labelled: { frame: number; timeSec: number; label: string }[]; images: PromptImage[] }> {
+  const labelled = sampled.map((s) => ({ frame: s.frame, timeSec: Number((s.frame / fps).toFixed(2)), label: `frame ${s.frame} (${(s.frame / fps).toFixed(2)}s, ${beatOf(span, s.frame)}, ${s.label})` }));
+  const images: PromptImage[] = [];
+  for (const still of preview.frames) {
+    const meta = labelled.find((l) => l.frame === still.frame)!;
+    images.push({ mediaType: "image/jpeg", data: await blob.get(still.blob), label: meta.label });
+  }
+  return { labelled, images };
+}
+
 async function runAttempt(
   deps: SequenceAuthoringDeps,
   input: SequenceAuthoringInput,
@@ -565,12 +599,7 @@ async function runAttempt(
   }
 
   // 4. Framed critique: the critic sees the actual candidate frames on every pass.
-  const labelled = sampled.map((s) => ({ frame: s.frame, timeSec: Number((s.frame / input.fps).toFixed(2)), label: `frame ${s.frame} (${(s.frame / input.fps).toFixed(2)}s, ${beatOf(span, s.frame)}, ${s.label})` }));
-  const images: PromptImage[] = [];
-  for (const still of preview.frames) {
-    const meta = labelled.find((l) => l.frame === still.frame)!;
-    images.push({ mediaType: "image/jpeg", data: await deps.blob.get(still.blob), label: meta.label });
-  }
+  const { labelled, images } = await critiqueImages(deps.blob, span, input.fps, sampled, preview);
   log("critique", "started");
   const critique = await timed(elapsedMs, "critique", () => deps.text.generate(SequenceCritique, {
     ...critiquePrompt({ input, sequence, span, manifest: built.manifest, frames: labelled, previousFindings: previous?.critique?.findings ?? [] }),

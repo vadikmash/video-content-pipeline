@@ -13,9 +13,15 @@ import { compositionDurationFrames, compositionDurationSec, type RenderInput, ty
 import { createLocalBlobStore } from "@vcp/provider-blob-local";
 import { create as createAnthropic } from "@vcp/provider-llm-anthropic";
 import { createDockerSequenceWorker, createRemotionRenderer } from "@vcp/provider-render-remotion";
-import { authorSequence, directSequences, type AuthoringEvent, type StepUsage } from "../src/animation/sequence-author";
+import { SequenceCritique, critiqueVerdict, type SequenceDirection, type SequenceManifest } from "@vcp/core";
+import {
+  authorSequence, critiqueFrames, critiqueImages, critiquePrompt, directSequences, plannedSpan,
+  type AttemptCheckpoint, type AuthoringEvent, type StepUsage,
+} from "../src/animation/sequence-author";
 
-const [blobDir, narrationWav, attemptId] = process.argv.slice(2);
+const [blobDir, narrationWav, attemptId, flag, flagValue] = process.argv.slice(2);
+// --recritique <ordinal>: render and critique a saved candidate again with the current sampler and critic prompt (one paid call).
+const recritique = flag === "--recritique" ? Number(flagValue) : undefined;
 if (!blobDir || !narrationWav || !attemptId) throw new Error("usage: sequence-pilot.ts <blobDir> <narration.wav> <attemptId>");
 const root = path.resolve(fileURLToPath(import.meta.url), "../../../..");
 const fixture = JSON.parse(await readFile(path.join(root, "fixtures/animation/popcorn-pilot.json"), "utf8"));
@@ -83,6 +89,33 @@ const deps = {
     console.log(JSON.stringify(entry));
   },
 };
+
+if (recritique !== undefined) {
+  const prefix = `projects/${projectId}/animations/attempts/${attemptId}/`;
+  const { direction } = JSON.parse(await readFile(path.join(blob.dir, `${prefix}direction.json`), "utf8")) as { direction: SequenceDirection };
+  const directed = direction.sequences.find((s) => s.beatIds.includes("b4"))!;
+  const sequence = { ...directed, beatIds: PILOT };
+  const checkpoint = JSON.parse(await readFile(path.join(blob.dir, `${prefix}${sequence.sequenceId}/${recritique}.json`), "utf8")) as AttemptCheckpoint;
+  const ref = checkpoint.manifest!.ref;
+  const manifest = JSON.parse(await readFile(path.join(blob.dir, ref.key), "utf8")) as SequenceManifest;
+  const span = plannedSpan(input, sequence);
+  const sampled = critiqueFrames(span, manifest.cues);
+  const storyboardScenes: Scene[] = input.scenes.map((scene) => PILOT.includes(scene.beatId)
+    ? { ...scene, visual: { kind: "animationSequence" as const, sequenceId: sequence.sequenceId, manifest: ref, description: manifest.description } }
+    : scene);
+  const preview = await renderer.preview!(renderInput(storyboardScenes), { profile: "draft", startFrame: span.startFrame, endFrame: span.endFrame, frames: sampled.map((f) => f.frame) });
+  const { labelled, images } = await critiqueImages(blob, span, FPS, sampled, preview);
+  const usage: unknown[] = [];
+  const critique = await text.generate(SequenceCritique, {
+    ...critiquePrompt({ input, sequence, span, manifest, frames: labelled, previousFindings: [] }),
+    images,
+    onUsage: (u) => usage.push(u),
+  });
+  const result = { attemptId, ordinal: recritique, frames: sampled, preview: { id: preview.id, video: preview.video.key }, critique, verdict: critiqueVerdict(critique), usage };
+  await writeFile(path.join(blob.dir, `pilot-${attemptId}-recritique-${recritique}.json`), `${JSON.stringify(result, null, 2)}\n`);
+  console.log(JSON.stringify({ recritique: recritique, verdict: result.verdict, frames: sampled.map((f) => f.frame) }));
+  process.exit(0);
+}
 
 const started = Date.now();
 const { direction, usage: directionUsage } = await directSequences(deps, input);
