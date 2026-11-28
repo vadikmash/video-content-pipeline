@@ -28,7 +28,7 @@ export async function resolveAsset(
   const seconds = Math.max(1, scene.end - scene.start);
   const imageOptions = { width: 1080, height: 1920, requestId };
 
-  if (v.kind === "type" || v.kind === "diagram" || v.kind === "animation") return undefined;
+  if (v.kind === "type" || v.kind === "diagram" || v.kind === "animation" || v.kind === "animationSequence") return undefined;
 
   if (v.kind === "stock") {
     const hits = await ports.StockSearch.search(v.query, { orientation: v.orientation, minDurationSec: seconds, perPage: 3 });
@@ -66,7 +66,7 @@ export const assets = defineStage({
     const { ports, store, project } = ctx;
     const board = await store.latestStoryboard(project.id);
     if (!board || board.id !== input.storyboardId) throw new StageError("assets: storyboard changed under us", false);
-    if (input.visualMode === "animated" && board.scenes.some(scene => scene.visual.kind !== "animation")) {
+    if (input.visualMode === "animated" && board.scenes.some(scene => scene.visual.kind !== "animation" && scene.visual.kind !== "animationSequence")) {
       throw new StageError("Fully animated projects need an animation for every scene", false);
     }
 

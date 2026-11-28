@@ -24,12 +24,45 @@ export interface DiscoverCtx {
 
 export type PromptKind = "brief" | "script" | "storyboard" | "animation" | "score" | "other";
 
+/** An image the pipeline produced itself (for example a rendered frame), sent as a real image block. */
+export interface PromptImage {
+  mediaType: "image/jpeg" | "image/png";
+  data: Uint8Array;
+  /** Short caption placed before the image, such as "frame 607 (20.23s)". */
+  label?: string;
+}
+
+/** Usage for one provider response, including a schema-repair response. */
+export interface PromptUsage {
+  provider: string;
+  /** Model that actually responded (may differ from the request on a fallback). */
+  model: string;
+  requestId?: string;
+  /** 0 for the first response of a logical generation, 1 for its schema repair. */
+  repair: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  /** Set when counts are estimated rather than reported; names the estimator. */
+  estimator?: string;
+}
+
 export interface Prompt {
   kind: PromptKind;
   system?: string;
   user: string;
   /** Structured context the model may use; fakes key fixtures off this. */
   context?: Record<string, unknown>;
+  /** Images placed before the user text. Only for models with image input. */
+  images?: PromptImage[];
+  /** Called once per provider response; `generate` still returns only the parsed value. */
+  onUsage?: (usage: PromptUsage) => void;
+  /** Called with the validation issues when a response misses the schema (before the repair call, or before giving up). */
+  onInvalidOutput?: (issues: string, repair: number) => void;
+  signal?: AbortSignal;
+  /** Output-token cap including reasoning, for steps whose output is long (authored source). Adapters clamp to the model's limit. */
+  maxOutputTokens?: number;
 }
 
 export interface Voice {
@@ -98,6 +131,8 @@ export interface IdeaSource {
 
 export interface TextModel {
   id: string;
+  /** Whether the configured model accepts `Prompt.images`. Absent means no. */
+  capabilities?: { images: boolean; model?: string };
   generate<T>(schema: ZodType<T>, prompt: Prompt): Promise<T>;
 }
 
@@ -133,9 +168,45 @@ export interface ClipGen {
   generate(prompt: string, seconds: number, opts: ClipGenOpts): Promise<Asset>;
 }
 
+export type RenderProfile = "draft" | "full";
+
+export interface PreviewOptions {
+  profile: RenderProfile;
+  /** Half-open global composition frame range. */
+  startFrame: number;
+  endFrame: number;
+  /** Global composition frames to return as JPEG stills (inside the range). */
+  frames?: number[];
+  signal?: AbortSignal;
+}
+
+export interface PreviewFrame {
+  frame: number;
+  timeSec: number;
+  blob: BlobRef;
+}
+
+/** A playable excerpt of the composition with voice and captions. Never a `Render`. */
+export interface Preview {
+  id: string;
+  projectId: string;
+  profile: RenderProfile;
+  startFrame: number;
+  endFrame: number;
+  width: number;
+  height: number;
+  fps: number;
+  video: BlobRef;
+  frames: PreviewFrame[];
+  provider: string;
+  createdAt: string;
+}
+
 export interface Renderer {
   id: string;
   render(input: RenderInput): Promise<Render>;
+  /** Draft or full excerpt for inspection; stored under previews, outside the approval flow. */
+  preview?(input: RenderInput, options: PreviewOptions): Promise<Preview>;
 }
 
 export interface Publisher {

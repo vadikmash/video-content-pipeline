@@ -1,0 +1,969 @@
+{
+ "description": "Popcorn pilot (beats b3-b5) from the saved Fully animated trial. Timings, words and claims only; the audio and baseline render stay in the local trial data.",
+ "provenance": {
+  "database": "vcp_claude_trial",
+  "projectId": "d6c0cc5c-ce97-4fa3-810e-5d59423e09a0",
+  "renderId": "3b542d65-2662-418b-be1f-61380769f490",
+  "storyboardId": "a2a76d71-c746-4e21-ba10-1f8ca08eb610",
+  "narrationId": "afc824eb-4639-4a45-a711-687a57c12812",
+  "scriptId": "771f5788-c8a7-4d22-801e-37b9903cef1d",
+  "renderTemplateVersion": "1.7.0",
+  "renderDurationSec": 39.1
+ },
+ "fps": 30,
+ "narrationDurationSec": 38.809,
+ "compositionDurationSec": 39.1,
+ "pilot": {
+  "beatIds": [
+   "b3",
+   "b4",
+   "b5"
+  ],
+  "startFrame": 384,
+  "endFrame": 716,
+  "cues": [
+   {
+    "name": "heats",
+    "word": 40,
+    "edge": "start",
+    "offsetFrames": 0,
+    "frame": 405,
+    "text": "heats,"
+   },
+   {
+    "name": "vapor",
+    "word": 46,
+    "edge": "start",
+    "offsetFrames": 0,
+    "frame": 459,
+    "text": "vapor."
+   },
+   {
+    "name": "builds",
+    "word": 51,
+    "edge": "start",
+    "offsetFrames": 0,
+    "frame": 525,
+    "text": "builds"
+   },
+   {
+    "name": "pressure",
+    "word": 52,
+    "edge": "start",
+    "offsetFrames": 0,
+    "frame": 534,
+    "text": "pressure"
+   },
+   {
+    "name": "ruptures",
+    "word": 59,
+    "edge": "start",
+    "offsetFrames": 0,
+    "frame": 607,
+    "text": "ruptures,"
+   },
+   {
+    "name": "expands",
+    "word": 64,
+    "edge": "start",
+    "offsetFrames": 0,
+    "frame": 662,
+    "text": "expands"
+   }
+  ]
+ },
+ "baselineStillFrames": [
+  384,
+  405,
+  459,
+  476,
+  477,
+  525,
+  534,
+  573,
+  574,
+  606,
+  607,
+  662,
+  690,
+  715
+ ],
+ "scenes": [
+  {
+   "beatId": "hook",
+   "start": 0,
+   "end": 4.054
+  },
+  {
+   "beatId": "b1",
+   "start": 4.309,
+   "end": 8.765
+  },
+  {
+   "beatId": "b2",
+   "start": 8.973,
+   "end": 12.566
+  },
+  {
+   "beatId": "b3",
+   "start": 12.804,
+   "end": 15.649
+  },
+  {
+   "beatId": "b4",
+   "start": 15.916,
+   "end": 18.962
+  },
+  {
+   "beatId": "b5",
+   "start": 19.137,
+   "end": 23.681
+  },
+  {
+   "beatId": "b6",
+   "start": 23.866,
+   "end": 28.111
+  },
+  {
+   "beatId": "b7",
+   "start": 28.35,
+   "end": 34.809
+  },
+  {
+   "beatId": "outro",
+   "start": 35.059,
+   "end": 38.809
+  }
+ ],
+ "script": {
+  "hook": "Every popcorn kernel is a tiny pressure cooker, and some of them fail.",
+  "beats": [
+   {
+    "id": "b1",
+    "text": "Inside each kernel, a strong outer hull seals in a small amount of moisture."
+   },
+   {
+    "id": "b2",
+    "text": "That same tough hull also encases the starch packed within."
+   },
+   {
+    "id": "b3",
+    "text": "As the kernel heats, the trapped water turns into vapor."
+   },
+   {
+    "id": "b4",
+    "text": "Sealed inside, that vapor builds pressure against the hull."
+   },
+   {
+    "id": "b5",
+    "text": "Eventually the hull ruptures, and the hot starch expands rapidly outward."
+   },
+   {
+    "id": "b6",
+    "text": "In an instant, that burst transforms a hard seed into a fluffy snack."
+   },
+   {
+    "id": "b7",
+    "text": "But kernels with cracks or weak spots can leak moisture while they heat, so pressure never builds and they stay unpopped."
+   }
+  ],
+  "outro": "So a leaky hull can explain that stubborn kernel at the bottom of the bowl.",
+  "claims": [
+   {
+    "text": "A popcorn kernel heats trapped water that builds pressure until it pops.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.9
+   },
+   {
+    "text": "A strong hull holds moisture inside a popcorn kernel.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.95
+   },
+   {
+    "text": "The hull surrounds starch inside the kernel.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.9
+   },
+   {
+    "text": "Heating the water inside the kernel creates vapor.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.95
+   },
+   {
+    "text": "The vapor builds pressure inside the hull.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.95
+   },
+   {
+    "text": "When the hull ruptures, hot starch expands rapidly.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.95
+   },
+   {
+    "text": "The expanding starch forms the fluffy snack.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.95
+   },
+   {
+    "text": "Cracks or weak spots can release moisture during heating, preventing some kernels from popping.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.95
+   },
+   {
+    "text": "Unpopped kernels can result from hulls that leak moisture.",
+    "sourceUrl": "https://ag.purdue.edu/news/2020/02/whats-under-the-shell-of-this-popular-snack.html",
+    "confidence": 0.9
+   }
+  ]
+ },
+ "words": [
+  {
+   "index": 0,
+   "text": "Every",
+   "start": 0,
+   "end": 0.32
+  },
+  {
+   "index": 1,
+   "text": "popcorn",
+   "start": 0.38,
+   "end": 0.8
+  },
+  {
+   "index": 2,
+   "text": "kernel",
+   "start": 0.857,
+   "end": 1.2
+  },
+  {
+   "index": 3,
+   "text": "is",
+   "start": 1.253,
+   "end": 1.36
+  },
+  {
+   "index": 4,
+   "text": "a",
+   "start": 1.44,
+   "end": 1.52
+  },
+  {
+   "index": 5,
+   "text": "tiny",
+   "start": 1.584,
+   "end": 1.84
+  },
+  {
+   "index": 6,
+   "text": "pressure",
+   "start": 1.884,
+   "end": 2.24
+  },
+  {
+   "index": 7,
+   "text": "cooker,",
+   "start": 2.297,
+   "end": 2.64
+  },
+  {
+   "index": 8,
+   "text": "and",
+   "start": 2.974,
+   "end": 3.094
+  },
+  {
+   "index": 9,
+   "text": "some",
+   "start": 3.142,
+   "end": 3.334
+  },
+  {
+   "index": 10,
+   "text": "of",
+   "start": 3.361,
+   "end": 3.414
+  },
+  {
+   "index": 11,
+   "text": "them",
+   "start": 3.446,
+   "end": 3.574
+  },
+  {
+   "index": 12,
+   "text": "fail.",
+   "start": 3.67,
+   "end": 4.054
+  },
+  {
+   "index": 13,
+   "text": "Inside",
+   "start": 4.309,
+   "end": 4.845
+  },
+  {
+   "index": 14,
+   "text": "each",
+   "start": 4.893,
+   "end": 5.085
+  },
+  {
+   "index": 15,
+   "text": "kernel,",
+   "start": 5.142,
+   "end": 5.485
+  },
+  {
+   "index": 16,
+   "text": "a",
+   "start": 5.605,
+   "end": 5.645
+  },
+  {
+   "index": 17,
+   "text": "strong",
+   "start": 5.714,
+   "end": 6.125
+  },
+  {
+   "index": 18,
+   "text": "outer",
+   "start": 6.178,
+   "end": 6.445
+  },
+  {
+   "index": 19,
+   "text": "hull",
+   "start": 6.525,
+   "end": 6.845
+  },
+  {
+   "index": 20,
+   "text": "seals",
+   "start": 6.912,
+   "end": 7.245
+  },
+  {
+   "index": 21,
+   "text": "in",
+   "start": 7.298,
+   "end": 7.405
+  },
+  {
+   "index": 22,
+   "text": "a",
+   "start": 7.445,
+   "end": 7.485
+  },
+  {
+   "index": 23,
+   "text": "small",
+   "start": 7.552,
+   "end": 7.885
+  },
+  {
+   "index": 24,
+   "text": "amount",
+   "start": 7.919,
+   "end": 8.125
+  },
+  {
+   "index": 25,
+   "text": "of",
+   "start": 8.152,
+   "end": 8.205
+  },
+  {
+   "index": 26,
+   "text": "moisture.",
+   "start": 8.267,
+   "end": 8.765
+  },
+  {
+   "index": 27,
+   "text": "That",
+   "start": 8.973,
+   "end": 9.286
+  },
+  {
+   "index": 28,
+   "text": "same",
+   "start": 9.35,
+   "end": 9.606
+  },
+  {
+   "index": 29,
+   "text": "tough",
+   "start": 9.673,
+   "end": 10.006
+  },
+  {
+   "index": 30,
+   "text": "hull",
+   "start": 10.086,
+   "end": 10.406
+  },
+  {
+   "index": 31,
+   "text": "also",
+   "start": 10.47,
+   "end": 10.726
+  },
+  {
+   "index": 32,
+   "text": "encases",
+   "start": 10.786,
+   "end": 11.286
+  },
+  {
+   "index": 33,
+   "text": "the",
+   "start": 11.306,
+   "end": 11.366
+  },
+  {
+   "index": 34,
+   "text": "starch",
+   "start": 11.423,
+   "end": 11.766
+  },
+  {
+   "index": 35,
+   "text": "packed",
+   "start": 11.812,
+   "end": 12.086
+  },
+  {
+   "index": 36,
+   "text": "within.",
+   "start": 12.155,
+   "end": 12.566
+  },
+  {
+   "index": 37,
+   "text": "As",
+   "start": 12.804,
+   "end": 13.009
+  },
+  {
+   "index": 38,
+   "text": "the",
+   "start": 13.029,
+   "end": 13.089
+  },
+  {
+   "index": 39,
+   "text": "kernel",
+   "start": 13.135,
+   "end": 13.409
+  },
+  {
+   "index": 40,
+   "text": "heats,",
+   "start": 13.489,
+   "end": 13.889
+  },
+  {
+   "index": 41,
+   "text": "the",
+   "start": 13.989,
+   "end": 14.049
+  },
+  {
+   "index": 42,
+   "text": "trapped",
+   "start": 14.089,
+   "end": 14.369
+  },
+  {
+   "index": 43,
+   "text": "water",
+   "start": 14.422,
+   "end": 14.689
+  },
+  {
+   "index": 44,
+   "text": "turns",
+   "start": 14.742,
+   "end": 15.009
+  },
+  {
+   "index": 45,
+   "text": "into",
+   "start": 15.057,
+   "end": 15.249
+  },
+  {
+   "index": 46,
+   "text": "vapor.",
+   "start": 15.316,
+   "end": 15.649
+  },
+  {
+   "index": 47,
+   "text": "Sealed",
+   "start": 15.916,
+   "end": 16.322
+  },
+  {
+   "index": 48,
+   "text": "inside,",
+   "start": 16.391,
+   "end": 16.802
+  },
+  {
+   "index": 49,
+   "text": "that",
+   "start": 16.93,
+   "end": 17.122
+  },
+  {
+   "index": 50,
+   "text": "vapor",
+   "start": 17.175,
+   "end": 17.442
+  },
+  {
+   "index": 51,
+   "text": "builds",
+   "start": 17.488,
+   "end": 17.762
+  },
+  {
+   "index": 52,
+   "text": "pressure",
+   "start": 17.806,
+   "end": 18.162
+  },
+  {
+   "index": 53,
+   "text": "against",
+   "start": 18.202,
+   "end": 18.482
+  },
+  {
+   "index": 54,
+   "text": "the",
+   "start": 18.502,
+   "end": 18.562
+  },
+  {
+   "index": 55,
+   "text": "hull.",
+   "start": 18.642,
+   "end": 18.962
+  },
+  {
+   "index": 56,
+   "text": "Eventually",
+   "start": 19.137,
+   "end": 19.761
+  },
+  {
+   "index": 57,
+   "text": "the",
+   "start": 19.801,
+   "end": 19.921
+  },
+  {
+   "index": 58,
+   "text": "hull",
+   "start": 19.969,
+   "end": 20.161
+  },
+  {
+   "index": 59,
+   "text": "ruptures,",
+   "start": 20.225,
+   "end": 20.801
+  },
+  {
+   "index": 60,
+   "text": "and",
+   "start": 21.141,
+   "end": 21.201
+  },
+  {
+   "index": 61,
+   "text": "the",
+   "start": 21.221,
+   "end": 21.281
+  },
+  {
+   "index": 62,
+   "text": "hot",
+   "start": 21.361,
+   "end": 21.601
+  },
+  {
+   "index": 63,
+   "text": "starch",
+   "start": 21.658,
+   "end": 22.001
+  },
+  {
+   "index": 64,
+   "text": "expands",
+   "start": 22.061,
+   "end": 22.481
+  },
+  {
+   "index": 65,
+   "text": "rapidly",
+   "start": 22.561,
+   "end": 23.121
+  },
+  {
+   "index": 66,
+   "text": "outward.",
+   "start": 23.191,
+   "end": 23.681
+  },
+  {
+   "index": 67,
+   "text": "In",
+   "start": 23.866,
+   "end": 24.031
+  },
+  {
+   "index": 68,
+   "text": "an",
+   "start": 24.084,
+   "end": 24.191
+  },
+  {
+   "index": 69,
+   "text": "instant,",
+   "start": 24.241,
+   "end": 24.591
+  },
+  {
+   "index": 70,
+   "text": "that",
+   "start": 24.703,
+   "end": 24.831
+  },
+  {
+   "index": 71,
+   "text": "burst",
+   "start": 24.898,
+   "end": 25.231
+  },
+  {
+   "index": 72,
+   "text": "transforms",
+   "start": 25.289,
+   "end": 25.871
+  },
+  {
+   "index": 73,
+   "text": "a",
+   "start": 25.911,
+   "end": 25.951
+  },
+  {
+   "index": 74,
+   "text": "hard",
+   "start": 26.031,
+   "end": 26.351
+  },
+  {
+   "index": 75,
+   "text": "seed",
+   "start": 26.431,
+   "end": 26.751
+  },
+  {
+   "index": 76,
+   "text": "into",
+   "start": 26.799,
+   "end": 26.991
+  },
+  {
+   "index": 77,
+   "text": "a",
+   "start": 27.031,
+   "end": 27.071
+  },
+  {
+   "index": 78,
+   "text": "fluffy",
+   "start": 27.14,
+   "end": 27.551
+  },
+  {
+   "index": 79,
+   "text": "snack.",
+   "start": 27.644,
+   "end": 28.111
+  },
+  {
+   "index": 80,
+   "text": "But",
+   "start": 28.35,
+   "end": 28.489
+  },
+  {
+   "index": 81,
+   "text": "kernels",
+   "start": 28.539,
+   "end": 28.889
+  },
+  {
+   "index": 82,
+   "text": "with",
+   "start": 28.921,
+   "end": 29.049
+  },
+  {
+   "index": 83,
+   "text": "cracks",
+   "start": 29.129,
+   "end": 29.609
+  },
+  {
+   "index": 84,
+   "text": "or",
+   "start": 29.636,
+   "end": 29.689
+  },
+  {
+   "index": 85,
+   "text": "weak",
+   "start": 29.737,
+   "end": 29.929
+  },
+  {
+   "index": 86,
+   "text": "spots",
+   "start": 30.009,
+   "end": 30.409
+  },
+  {
+   "index": 87,
+   "text": "can",
+   "start": 30.449,
+   "end": 30.569
+  },
+  {
+   "index": 88,
+   "text": "leak",
+   "start": 30.601,
+   "end": 30.729
+  },
+  {
+   "index": 89,
+   "text": "moisture",
+   "start": 30.782,
+   "end": 31.209
+  },
+  {
+   "index": 90,
+   "text": "while",
+   "start": 31.236,
+   "end": 31.369
+  },
+  {
+   "index": 91,
+   "text": "they",
+   "start": 31.401,
+   "end": 31.529
+  },
+  {
+   "index": 92,
+   "text": "heat,",
+   "start": 31.609,
+   "end": 31.929
+  },
+  {
+   "index": 93,
+   "text": "so",
+   "start": 32.382,
+   "end": 32.489
+  },
+  {
+   "index": 94,
+   "text": "pressure",
+   "start": 32.533,
+   "end": 32.889
+  },
+  {
+   "index": 95,
+   "text": "never",
+   "start": 32.942,
+   "end": 33.209
+  },
+  {
+   "index": 96,
+   "text": "builds",
+   "start": 33.266,
+   "end": 33.609
+  },
+  {
+   "index": 97,
+   "text": "and",
+   "start": 33.649,
+   "end": 33.769
+  },
+  {
+   "index": 98,
+   "text": "they",
+   "start": 33.801,
+   "end": 33.929
+  },
+  {
+   "index": 99,
+   "text": "stay",
+   "start": 33.977,
+   "end": 34.169
+  },
+  {
+   "index": 100,
+   "text": "unpopped.",
+   "start": 34.249,
+   "end": 34.809
+  },
+  {
+   "index": 101,
+   "text": "So",
+   "start": 35.059,
+   "end": 35.289
+  },
+  {
+   "index": 102,
+   "text": "a",
+   "start": 35.329,
+   "end": 35.369
+  },
+  {
+   "index": 103,
+   "text": "leaky",
+   "start": 35.433,
+   "end": 35.769
+  },
+  {
+   "index": 104,
+   "text": "hull",
+   "start": 35.849,
+   "end": 36.169
+  },
+  {
+   "index": 105,
+   "text": "can",
+   "start": 36.189,
+   "end": 36.249
+  },
+  {
+   "index": 106,
+   "text": "explain",
+   "start": 36.309,
+   "end": 36.729
+  },
+  {
+   "index": 107,
+   "text": "that",
+   "start": 36.761,
+   "end": 36.889
+  },
+  {
+   "index": 108,
+   "text": "stubborn",
+   "start": 36.942,
+   "end": 37.369
+  },
+  {
+   "index": 109,
+   "text": "kernel",
+   "start": 37.426,
+   "end": 37.769
+  },
+  {
+   "index": 110,
+   "text": "at",
+   "start": 37.796,
+   "end": 37.849
+  },
+  {
+   "index": 111,
+   "text": "the",
+   "start": 37.869,
+   "end": 37.929
+  },
+  {
+   "index": 112,
+   "text": "bottom",
+   "start": 37.975,
+   "end": 38.249
+  },
+  {
+   "index": 113,
+   "text": "of",
+   "start": 38.276,
+   "end": 38.329
+  },
+  {
+   "index": 114,
+   "text": "the",
+   "start": 38.349,
+   "end": 38.409
+  },
+  {
+   "index": 115,
+   "text": "bowl.",
+   "start": 38.489,
+   "end": 38.809
+  }
+ ],
+ "fixtureSequence": {
+  "sequenceId": "popcorn-mechanism",
+  "description": "Kernel cutaway: moisture turns to vapor, pressure builds in the intact hull, the hull splits at a seam and starch expands through it.",
+  "source": "fixtures/animation/popcorn-kernel.tsx",
+  "seed": 1729,
+  "style": {
+   "id": "warm-cutaway-v1",
+   "palette": {
+    "background": "#0d1b2a",
+    "backlight": "#1f3b57",
+    "hull": "#c47a2c",
+    "hullHot": "#d9542b",
+    "starch": "#f2e4c2",
+    "starchShade": "#dcc89c",
+    "water": "#4fb3e8",
+    "vapor": "#6ec6f5",
+    "pressure": "#ff8a5b",
+    "tip": "#7a4a1e"
+   },
+   "notes": "Drawn scientific cutaway: warm hull, pale textured starch, cool moisture; light from upper left."
+  },
+  "poses": {
+   "start": {
+    "kernel": {
+     "x": 540,
+     "y": 760,
+     "width": 500,
+     "height": 660,
+     "scale": 0.92,
+     "rotate": 0
+    }
+   },
+   "end": {
+    "kernel": {
+     "x": 540,
+     "y": 760,
+     "width": 500,
+     "height": 660,
+     "scale": 0.84,
+     "rotate": 0
+    },
+    "puff": {
+     "x": 570,
+     "y": 560,
+     "width": 560,
+     "height": 560,
+     "scale": 0.84,
+     "rotate": 0
+    }
+   }
+  }
+ }
+}

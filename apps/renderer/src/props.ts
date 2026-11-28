@@ -7,7 +7,7 @@ import { VectorAnimation } from "@vcp/core/animation";
  */
 
 export const TEMPLATE_ID = "fact-short";
-export const TEMPLATE_VERSION = "1.7.0";
+export const TEMPLATE_VERSION = "1.8.0";
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
 export const FPS = 30;
@@ -31,8 +31,16 @@ export const SceneProp = z.object({
   start: z.number(),
   end: z.number(),
   text: z.string(),
-  kind: z.enum(["type", "stock", "still", "clip", "diagram", "animation"]),
+  kind: z.enum(["type", "stock", "still", "clip", "diagram", "animation", "animationSequence"]),
   animation: VectorAnimation.optional(),
+  /** Verified visual-only intermediate for an authored sequence spanning one or more beats. */
+  sequence: z.object({
+    id: z.string(),
+    url: z.string(),
+    /** Global composition frames, half-open, from the manifest. */
+    startFrame: z.number().int().nonnegative(),
+    endFrame: z.number().int().positive(),
+  }).optional(),
   captionPosition: z.enum(["top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"]).optional(),
   asset: SceneAsset.optional(),
   diagram: z.discriminatedUnion("kind", [

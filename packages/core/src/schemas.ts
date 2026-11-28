@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VectorAnimation } from "./animation";
+import { AnimationSequenceRef, VectorAnimation } from "./animation";
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -129,6 +129,8 @@ export type VisualIntent = z.infer<typeof VisualIntent>;
 export const SceneVisual = z.discriminatedUnion("kind", [
   ...VisualIntent.options,
   z.object({ kind: z.literal("animation"), plan: VectorAnimation }),
+  // Generated sequence refs stay out of VisualIntent, the planner's schema.
+  AnimationSequenceRef,
 ]);
 export type VisualKind = z.infer<typeof SceneVisual>["kind"];
 

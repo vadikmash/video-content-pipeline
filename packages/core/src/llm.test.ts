@@ -69,3 +69,15 @@ function walkObjectsClosed(node: unknown): boolean {
   if (obj.type === "object" && obj.additionalProperties !== false) return false;
   return Object.values(obj).every(walkObjectsClosed);
 }
+
+describe("parseWithOneRetry onInvalid", () => {
+  it("reports the issues of each miss", async () => {
+    const { z } = await import("zod");
+    const seen: [string, number][] = [];
+    const out = await parseWithOneRetry(z.object({ n: z.number().max(3) }), "go", async (_user, repair) => ({ n: repair ? 2 : 9 }), (issues, repair) => seen.push([issues, repair]));
+    expect(out).toEqual({ n: 2 });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]![0]).toMatch(/^n: /);
+    expect(seen[0]![1]).toBe(0);
+  });
+});

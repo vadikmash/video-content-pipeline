@@ -24,6 +24,40 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  apps/animation-worker:
+    dependencies:
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@remotion/bundler':
+        specifier: 4.0.540
+        version: 4.0.540(@swc/helpers@0.5.23)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@remotion/renderer':
+        specifier: 4.0.540
+        version: 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      '@vcp/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@vcp/renderer':
+        specifier: workspace:*
+        version: link:../renderer
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+      remotion:
+        specifier: 4.0.540
+        version: 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+
   apps/dashboard:
     dependencies:
       '@vcp/core':
@@ -66,6 +100,9 @@ importers:
 
   apps/pipeline:
     dependencies:
+      '@vcp/animation-worker':
+        specifier: workspace:*
+        version: link:../animation-worker
       '@vcp/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -97,6 +134,15 @@ importers:
       '@vcp/provider-fake-publish':
         specifier: workspace:*
         version: link:../../packages/providers/fake-publish
+      '@vcp/provider-fake-render':
+        specifier: workspace:*
+        version: link:../../packages/providers/fake-render
+      '@vcp/provider-llm-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/providers/llm-anthropic
+      '@vcp/provider-render-remotion':
+        specifier: workspace:*
+        version: link:../../packages/providers/render-remotion
       concurrently:
         specifier: ^10.0.6
         version: 10.0.6
@@ -570,6 +616,9 @@ importers:
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/providers/llm-openai:
     dependencies:
@@ -583,6 +632,9 @@ importers:
       vitest:
         specifier: ^5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(vite@8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
 
   packages/providers/publish-youtube:
     dependencies:
@@ -604,10 +656,13 @@ importers:
     dependencies:
       '@remotion/bundler':
         specifier: 4.0.540
-        version: 4.0.540(@swc/helpers@0.5.23)(postcss@8.5.32)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        version: 4.0.540(@swc/helpers@0.5.23)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/renderer':
         specifier: 4.0.540
         version: 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@vcp/animation-worker':
+        specifier: workspace:*
+        version: link:../../../apps/animation-worker
       '@vcp/core':
         specifier: workspace:*
         version: link:../../core
@@ -624,6 +679,12 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@vcp/provider-blob-local':
+        specifier: workspace:*
+        version: link:../blob-local
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       typescript:
         specifier: ^5.9.0
         version: 5.9.3
@@ -5820,7 +5881,7 @@ snapshots:
       '@remotion/studio-shared': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/timeline-utils': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@rspack/core': 2.3.0(@swc/helpers@0.5.23)
-      '@rspack/plugin-react-refresh': 2.0.2(@rspack/core@2.3.0(@swc/helpers@0.5.23))(react-refresh@0.18.0)
+      '@rspack/plugin-react-refresh': 2.0.2(@rspack/core@2.3.0)(react-refresh@0.18.0)
       css-loader: 7.1.4(@rspack/core@2.3.0(@swc/helpers@0.5.23))(webpack@5.105.0(esbuild@0.28.1)(postcss@8.5.32))
       esbuild: 0.28.1
       react: 19.3.1
@@ -5849,14 +5910,14 @@ snapshots:
       - utf-8-validate
       - webpack-cli
 
-  '@remotion/bundler@4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@remotion/bundler@4.0.540(@swc/helpers@0.5.23)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@remotion/studio': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/studio-shared': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/timeline-utils': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@rspack/core': 2.3.0(@swc/helpers@0.5.23)
-      '@rspack/plugin-react-refresh': 2.0.2(@rspack/core@2.3.0(@swc/helpers@0.5.23))(react-refresh@0.18.0)
-      css-loader: 7.1.4(@rspack/core@2.3.0)(webpack@5.105.0(esbuild@0.28.1))
+      '@rspack/plugin-react-refresh': 2.0.2(@rspack/core@2.3.0)(react-refresh@0.18.0)
+      css-loader: 7.1.4(@rspack/core@2.3.0(@swc/helpers@0.5.23))(webpack@5.105.0(esbuild@0.28.1))
       esbuild: 0.28.1
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -5889,7 +5950,7 @@ snapshots:
   '@remotion/cli@4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(typescript@5.9.3)':
     dependencies:
       '@babel/parser': 7.24.1
-      '@remotion/bundler': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@remotion/bundler': 4.0.540(@swc/helpers@0.5.23)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/codemods': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/licensing': 4.0.540
       '@remotion/media-utils': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -6049,7 +6110,7 @@ snapshots:
     dependencies:
       '@babel/parser': 7.24.1
       '@babel/types': 7.24.0
-      '@remotion/bundler': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@remotion/bundler': 4.0.540(@swc/helpers@0.5.23)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/codemods': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/renderer': 4.0.540(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@remotion/studio-protocol': 4.0.540
@@ -6268,7 +6329,7 @@ snapshots:
     optionalDependencies:
       '@swc/helpers': 0.5.23
 
-  '@rspack/plugin-react-refresh@2.0.2(@rspack/core@2.3.0(@swc/helpers@0.5.23))(react-refresh@0.18.0)':
+  '@rspack/plugin-react-refresh@2.0.2(@rspack/core@2.3.0)(react-refresh@0.18.0)':
     dependencies:
       react-refresh: 0.18.0
     optionalDependencies:
@@ -6716,7 +6777,7 @@ snapshots:
       '@rspack/core': 2.3.0(@swc/helpers@0.5.23)
       webpack: 5.105.0(esbuild@0.28.2)(postcss@8.5.32)
 
-  css-loader@7.1.4(@rspack/core@2.3.0)(webpack@5.105.0(esbuild@0.28.1)):
+  css-loader@7.1.4(@rspack/core@2.3.0(@swc/helpers@0.5.23))(webpack@5.105.0(esbuild@0.28.1)):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.32)
       postcss: 8.5.32

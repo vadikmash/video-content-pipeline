@@ -1,0 +1,4 @@
+node_modules
+test
+*.md
+wrapper/sequence.d.ts
